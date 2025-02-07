@@ -1,78 +1,68 @@
 document.addEventListener("DOMContentLoaded", function () {
-    const adminPass = "jvbjjhb";
+    // Encrypted password hash (SHA-256 of "112233")
+    const storedHash = "e4c06d42fc53ddda6a1c4a5c1f3e8dc5c357c9b1e99587e6166b3d97d98b9baa";
 
-    // Create modal elements dynamically
+    function sha256(str) {
+        return crypto.subtle.digest("SHA-256", new TextEncoder().encode(str))
+            .then(buf => Array.from(new Uint8Array(buf))
+            .map(b => b.toString(16).padStart(2, "0"))
+            .join(""));
+    }
+
+    function verifyPassword(inputPass) {
+        sha256(inputPass).then(hash => {
+            if (hash === storedHash) {
+                modal.remove();
+            } else {
+                document.body.innerHTML = "<h1 style='color: white; text-align: center; margin-top: 20%;'>Contents Encrypted</h1>";
+            }
+        });
+    }
+
+    // Creating modal dynamically
     let modal = document.createElement("div");
-    modal.style.position = "fixed";
-    modal.style.top = "0";
-    modal.style.left = "0";
-    modal.style.width = "100%";
-    modal.style.height = "100%";
-    modal.style.background = "rgba(0, 0, 0, 0.9)";
-    modal.style.display = "flex";
-    modal.style.justifyContent = "center";
-    modal.style.alignItems = "center";
-    modal.style.zIndex = "1000";
+    Object.assign(modal.style, {
+        position: "fixed", top: "0", left: "0", width: "100%", height: "100%",
+        background: "rgba(0, 0, 0, 0.9)", display: "flex", justifyContent: "center",
+        alignItems: "center", zIndex: "1000"
+    });
 
     let modalContent = document.createElement("div");
-    modalContent.style.background = "white";
-    modalContent.style.padding = "20px";
-    modalContent.style.borderRadius = "8px";
-    modalContent.style.textAlign = "center";
-    modalContent.style.boxShadow = "0 0 10px rgba(255, 255, 255, 0.2)";
+    Object.assign(modalContent.style, {
+        background: "white", padding: "20px", borderRadius: "8px", textAlign: "center",
+        boxShadow: "0 0 10px rgba(255, 255, 255, 0.2)"
+    });
 
     let title = document.createElement("h2");
     title.innerText = "Admin Access Required";
     title.style.color = "black";
 
     let input = document.createElement("input");
-    input.type = "password";
-    input.placeholder = "Enter password";
-    input.style.padding = "10px";
-    input.style.marginTop = "10px";
-    input.style.fontSize = "16px";
-    input.style.display = "block";
-    input.style.width = "80%";
-    input.style.marginLeft = "auto";
-    input.style.marginRight = "auto";
+    Object.assign(input, { type: "password", placeholder: "Enter password" });
+    Object.assign(input.style, {
+        padding: "10px", marginTop: "10px", fontSize: "16px", display: "block",
+        width: "80%", marginLeft: "auto", marginRight: "auto"
+    });
 
     let button = document.createElement("button");
     button.innerText = "Submit";
-    button.style.padding = "10px";
-    button.style.marginTop = "10px";
-    button.style.fontSize = "16px";
-    button.style.cursor = "pointer";
-    button.style.display = "block";
-    button.style.width = "100%";
+    Object.assign(button.style, {
+        padding: "10px", marginTop: "10px", fontSize: "16px", cursor: "pointer",
+        display: "block", width: "100%"
+    });
 
     let errorMessage = document.createElement("p");
     errorMessage.style.color = "red";
     errorMessage.style.display = "none";
 
-    // Append elements to modal
-    modalContent.appendChild(title);
-    modalContent.appendChild(input);
-    modalContent.appendChild(button);
-    modalContent.appendChild(errorMessage);
+    modalContent.append(title, input, button, errorMessage);
     modal.appendChild(modalContent);
     document.body.appendChild(modal);
 
-    button.addEventListener("click", function () {
-        if (input.value === adminPass) {
-            modal.remove();
-        } else {
-            document.body.innerHTML = "<h1 style='color: white; text-align: center; margin-top: 20%;'>Contents Encrypted</h1>";
-        }
-    });
+    button.addEventListener("click", () => verifyPassword(input.value));
+    input.addEventListener("keypress", event => { if (event.key === "Enter") button.click(); });
 
-    input.addEventListener("keypress", function (event) {
-        if (event.key === "Enter") {
-            button.click();
-        }
-    });
-
-    // Hide page content until authenticated
+    // Hide content before authentication
     document.body.style.background = "black";
     document.body.innerHTML = "";
 });
-  
