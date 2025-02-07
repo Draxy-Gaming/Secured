@@ -12,7 +12,9 @@ document.addEventListener("DOMContentLoaded", function () {
     function verifyPassword(inputPass) {
         sha256(inputPass).then(hash => {
             if (hash === storedHash) {
-                modal.remove();
+                document.body.removeChild(modal);
+                document.body.style.background = "white"; // Restore background
+                document.body.innerHTML = "<h1 style='text-align: center;'>Welcome to the Secured Page</h1><p style='text-align: center;'>You have successfully unlocked the content.</p>";
             } else {
                 document.body.innerHTML = "<h1 style='color: white; text-align: center; margin-top: 20%;'>Contents Encrypted</h1>";
             }
@@ -62,7 +64,6 @@ document.addEventListener("DOMContentLoaded", function () {
     button.addEventListener("click", () => verifyPassword(input.value));
     input.addEventListener("keypress", event => { if (event.key === "Enter") button.click(); });
 
-    // Hide content before authentication
+    // Ensure only the modal is shown initially
     document.body.style.background = "black";
-    document.body.innerHTML = "";
 });
