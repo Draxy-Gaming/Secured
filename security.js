@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", function () {
     // Encrypted password hash (SHA-256 of "112233")
-    const storedHash = "e4c06d42fc53ddda6a1c4a5c1f3e8dc5c357c9b1e99587e6166b3d97d98b9baa";
+    const storedHash = "e0bc60c82713f64ef8a57c0c40d02ce24fd0141d5cc3086259c19b1e62a62bea
+";
 
     function sha256(str) {
         return crypto.subtle.digest("SHA-256", new TextEncoder().encode(str))
