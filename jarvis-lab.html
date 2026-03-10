@@ -1688,6 +1688,48 @@ class ArduinoSimulator {
     
     // void functions → regular functions
     js = js.replace(/\bvoid\s+(\w+)\s*\(/g, 'function $1(');
+
+    // Function parameters: strip declaration leftovers from typed C/C++ args
+    // e.g. function cb(var from, var msg) -> function cb(from, msg)
+    const cleanFunctionParams = (rawParams) => {
+      const params = rawParams.trim();
+      if (!params) return '';
+
+      const parts = [];
+      let cur = '';
+      let depth = 0;
+      for (const ch of params) {
+        if (ch === '(' || ch === '[' || ch === '<') depth++;
+        if (ch === ')' || ch === ']' || ch === '>') depth = Math.max(0, depth - 1);
+        if (ch === ',' && depth === 0) {
+          parts.push(cur);
+          cur = '';
+          continue;
+        }
+        cur += ch;
+      }
+      if (cur.trim()) parts.push(cur);
+
+      return parts.map((part, idx) => {
+        let p = part.trim();
+        if (!p) return `arg${idx}`;
+        p = p.replace(/=[^,]*$/g, '').trim();
+        p = p.replace(/\b(const|volatile|static|register)\b/g, '').trim();
+        p = p.replace(/[&*]/g, ' ').trim();
+        p = p.replace(/^\b(var|let|const)\b\s+/, '').trim();
+
+        let name = p.split(/\s+/).filter(Boolean).pop() || `arg${idx}`;
+        name = name.replace(/\[\]$/,'');
+        if (!/^[A-Za-z_$][\w$]*$/.test(name)) {
+          name = name.replace(/[^A-Za-z0-9_$]/g, '') || `arg${idx}`;
+        }
+        return name;
+      }).join(', ');
+    };
+
+    js = js.replace(/function\s+([A-Za-z_]\w*)\s*\(([^)]*)\)\s*\{/g, (m, fnName, rawParams) => {
+      return `function ${fnName}(${cleanFunctionParams(rawParams)}) {`;
+    });
     
     // Make setup/loop generators
     js = js.replace(/function setup\s*\(\s*\)/, 'function* setup()');
