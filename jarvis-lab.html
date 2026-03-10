@@ -1731,9 +1731,6 @@ class ArduinoSimulator {
       return `function ${fnName}(${cleanFunctionParams(rawParams)}) {`;
     });
 
-    // Remove C/C++-style forward declarations left after conversion
-    // e.g. function sendMessage();
-    js = js.replace(/^\s*function\s+[A-Za-z_]\w*\s*\([^{};]*\)\s*;\s*$/gm, '');
     
     // Make setup/loop generators
     js = js.replace(/function setup\s*\(\s*\)/, 'function* setup()');
