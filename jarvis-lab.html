@@ -1,0 +1,3637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>J.A.R.V.I.S — Holographic Electronics Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --c:#00d4ff;--c2:#0070ff;--ca:#ff6b00;--cg:#00ff88;
+  --bg:#020810;--panel:rgba(2,15,40,0.92);--border:rgba(0,212,255,0.25);
+  --text:#b0e0ff;--text2:#6090c0;
+  --font:'Orbitron',monospace;--mono:'Share Tech Mono',monospace;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:var(--font);color:var(--text);}
+canvas{display:block;position:fixed;top:0;left:0;width:100%;height:100%;}
+#scanlines{position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:1;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,212,255,0.012) 2px,rgba(0,212,255,0.012) 4px);}
+
+/* TOP BAR */
+#topbar{position:fixed;top:0;left:0;right:0;height:52px;z-index:100;display:flex;align-items:center;padding:0 20px;
+  background:linear-gradient(180deg,rgba(0,20,50,0.95) 0%,rgba(0,10,30,0.6) 100%);
+  border-bottom:1px solid var(--border);backdrop-filter:blur(12px);}
+#logo{font-size:18px;font-weight:900;letter-spacing:6px;
+  background:linear-gradient(90deg,#00d4ff,#0070ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+#subtitle{font-size:9px;letter-spacing:3px;color:var(--text2);margin-left:14px;margin-top:2px;font-weight:400;}
+#sim-controls{display:flex;gap:8px;margin-left:auto;align-items:center;}
+.ctrl-btn{background:var(--panel);border:1px solid var(--border);color:var(--c);
+  padding:7px 16px;font-family:var(--font);font-size:10px;letter-spacing:2px;cursor:pointer;
+  transition:all .2s;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);}
+.ctrl-btn:hover{background:rgba(0,212,255,0.15);border-color:var(--c);box-shadow:0 0 12px rgba(0,212,255,0.3);}
+.ctrl-btn.active{background:rgba(0,212,255,0.2);border-color:var(--c);color:#fff;}
+.ctrl-btn.danger{border-color:rgba(255,107,0,0.5);color:var(--ca);}
+.ctrl-btn.danger:hover{background:rgba(255,107,0,0.15);}
+#status-dot{width:8px;height:8px;border-radius:50%;background:#333;margin-left:16px;transition:all .3s;}
+#status-dot.running{background:var(--cg);box-shadow:0 0 10px var(--cg);animation:pulse 1s infinite;}
+#status-dot.error{background:#ff3040;box-shadow:0 0 10px #ff3040;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+#fps-counter{font-size:9px;color:var(--text2);margin-left:10px;font-family:var(--mono);}
+
+/* LEFT PANEL — Component Library */
+#left-panel{position:fixed;left:0;top:52px;bottom:0;width:200px;z-index:100;
+  background:var(--panel);border-right:1px solid var(--border);backdrop-filter:blur(12px);
+  display:flex;flex-direction:column;overflow:hidden;transition:transform .3s;}
+#left-panel.collapsed{transform:translateX(-160px);}
+#panel-title{padding:14px 16px 10px;font-size:9px;letter-spacing:3px;color:var(--text2);
+  border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.panel-toggle{background:none;border:none;color:var(--c);cursor:pointer;font-size:14px;}
+#comp-list{flex:1;overflow-y:auto;padding:8px;}
+#comp-list::-webkit-scrollbar{width:3px;}
+#comp-list::-webkit-scrollbar-track{background:transparent;}
+#comp-list::-webkit-scrollbar-thumb{background:var(--border);}
+.comp-item{display:flex;align-items:center;gap:10px;padding:9px 10px;margin-bottom:4px;cursor:pointer;
+  border:1px solid transparent;transition:all .2s;border-radius:2px;}
+.comp-item:hover{border-color:var(--border);background:rgba(0,212,255,0.06);}
+.comp-item:active{background:rgba(0,212,255,0.12);}
+.comp-icon{width:32px;height:32px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+  font-size:15px;background:rgba(0,20,50,0.5);flex-shrink:0;}
+.comp-info{flex:1;}
+.comp-name{font-size:9px;font-weight:600;letter-spacing:1px;color:var(--text);}
+.comp-sub{font-size:8px;color:var(--text2);margin-top:2px;font-family:var(--mono);}
+
+/* RIGHT PANEL — Code/Properties */
+#right-panel{position:fixed;right:0;top:52px;bottom:0;width:300px;z-index:100;
+  background:var(--panel);border-left:1px solid var(--border);backdrop-filter:blur(12px);
+  display:flex;flex-direction:column;overflow:hidden;transition:transform .3s;}
+#right-panel.collapsed{transform:translateX(260px);}
+#prop-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+#prop-title{font-size:10px;letter-spacing:2px;color:var(--c);}
+#code-section{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+#code-toolbar{padding:8px 12px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;}
+#code-toolbar span{font-size:9px;letter-spacing:2px;color:var(--text2);}
+#editor{flex:1;background:transparent;border:none;resize:none;
+  color:#a0e0b0;font-family:var(--mono);font-size:12px;line-height:1.6;
+  padding:12px;outline:none;overflow-y:auto;}
+#editor::-webkit-scrollbar{width:3px;}
+#editor::-webkit-scrollbar-thumb{background:var(--border);}
+#upload-btn{margin:10px 12px;padding:10px;background:rgba(0,100,255,0.15);border:1px solid rgba(0,100,255,0.4);
+  color:#60a0ff;font-family:var(--font);font-size:9px;letter-spacing:3px;cursor:pointer;transition:all .2s;text-align:center;}
+#upload-btn:hover{background:rgba(0,100,255,0.25);border-color:var(--c2);}
+#prop-section{padding:10px 12px;border-top:1px solid var(--border);max-height:160px;overflow-y:auto;}
+.prop-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(0,212,255,0.07);}
+.prop-key{font-size:9px;color:var(--text2);}
+.prop-val{font-size:9px;color:var(--cg);font-family:var(--mono);}
+
+/* BOTTOM — Serial Monitor + AI */
+#bottom-panel{
+  position:fixed;bottom:0;left:200px;right:300px;
+  height:200px;min-height:120px;max-height:60vh;
+  z-index:100;
+  background:var(--panel);border-top:1px solid var(--border);backdrop-filter:blur(12px);
+  display:flex;flex-direction:column;
+  transition:left .3s, right .3s;
+}
+#bottom-panel.left-collapsed{left:40px;}
+#bottom-panel.right-collapsed{right:40px;}
+
+/* Resize handle */
+#bottom-resize{
+  height:5px;cursor:ns-resize;
+  background:linear-gradient(var(--border),transparent);
+  flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+}
+#bottom-resize::after{
+  content:'';display:block;
+  width:40px;height:2px;border-radius:2px;
+  background:var(--border);
+}
+#bottom-resize:hover::after{background:var(--c);}
+
+#bottom-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;
+  align-items:center;}
+.btab{padding:8px 16px;font-size:9px;letter-spacing:2px;cursor:pointer;color:var(--text2);
+  border-bottom:2px solid transparent;transition:all .2s;flex-shrink:0;}
+.btab.active{color:var(--c);border-bottom-color:var(--c);}
+#bottom-collapse-btn{margin-left:auto;margin-right:10px;background:none;border:none;
+  color:var(--text2);cursor:pointer;font-size:12px;padding:4px 8px;transition:color .2s;}
+#bottom-collapse-btn:hover{color:var(--c);}
+
+#serial-monitor{flex:1;overflow-y:auto;padding:8px 12px;font-family:var(--mono);font-size:11px;color:#80d080;
+  display:none;min-height:0;}
+#serial-monitor.active{display:block;}
+#serial-monitor::-webkit-scrollbar{width:3px;}
+#serial-monitor::-webkit-scrollbar-thumb{background:var(--border);}
+.serial-line{padding:1px 0;white-space:pre-wrap;}
+.serial-line.error{color:#ff6060;}
+.serial-line.info{color:#6090ff;}
+
+/* FIXED: removed duplicate display property */
+#ai-console{display:none;flex-direction:column;flex:1;min-height:0;}
+#ai-console.active{display:flex;}
+#ai-log{flex:1;overflow-y:auto;padding:8px 12px;font-size:11px;min-height:0;}
+#ai-log::-webkit-scrollbar{width:3px;}
+#ai-log::-webkit-scrollbar-thumb{background:var(--border);}
+.ai-msg{padding:4px 0;border-bottom:1px solid rgba(0,212,255,0.06);}
+.ai-msg.user{color:#80b0ff;font-family:var(--mono);}
+.ai-msg.ai{color:var(--c);}
+.ai-msg.system{color:var(--text2);font-size:10px;font-style:italic;}
+#thinking-indicator{display:none;color:var(--c2);font-size:10px;padding:2px 12px;flex-shrink:0;animation:thinking 1.5s infinite;}
+@keyframes thinking{0%,100%{opacity:0.4;}50%{opacity:1;}}
+/* KEY FIX: input row must never shrink away */
+#ai-input-row{display:flex;padding:8px 12px;gap:8px;border-top:1px solid var(--border);
+  flex-shrink:0;background:rgba(2,10,30,0.6);}
+#ai-input{flex:1;background:rgba(0,20,50,0.7);border:1px solid var(--border);color:var(--text);
+  font-family:var(--mono);font-size:11px;padding:8px 10px;outline:none;min-width:0;}
+#ai-input:focus{border-color:var(--c);background:rgba(0,20,60,0.9);}
+#ai-input::placeholder{color:var(--text2);}
+#ai-send{background:rgba(0,212,255,0.15);border:1px solid var(--border);color:var(--c);
+  font-family:var(--font);font-size:9px;letter-spacing:2px;padding:8px 14px;cursor:pointer;
+  white-space:nowrap;flex-shrink:0;transition:all .2s;}
+#ai-send:hover{background:rgba(0,212,255,0.3);border-color:var(--c);}
+#ai-send:active{background:rgba(0,212,255,0.5);}
+
+/* ON-SCREEN NAV CONTROLS (trackpad friendly) */
+#nav-controls{
+  position:fixed;right:308px;bottom:210px;z-index:101;
+  display:flex;flex-direction:column;gap:4px;align-items:center;
+  transition:right .3s, bottom .3s;
+}
+.nav-group{display:flex;gap:4px;}
+.nav-btn{
+  width:34px;height:34px;
+  background:rgba(0,20,50,0.85);border:1px solid var(--border);
+  color:var(--c);cursor:pointer;font-size:14px;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s;border-radius:3px;
+  user-select:none;-webkit-user-select:none;
+}
+.nav-btn:hover{background:rgba(0,212,255,0.2);border-color:var(--c);}
+.nav-btn:active{background:rgba(0,212,255,0.4);transform:scale(0.92);}
+.nav-btn.nav-label{font-size:7px;letter-spacing:1px;width:auto;padding:0 8px;color:var(--text2);}
+#nav-hint{
+  position:fixed;right:308px;bottom:205px;z-index:101;
+  font-size:8px;letter-spacing:1px;color:var(--text2);text-align:center;
+  pointer-events:none;line-height:1.6;
+}
+
+/* SENSOR MONITOR */
+#sensor-panel::-webkit-scrollbar{width:3px;}
+#sensor-panel::-webkit-scrollbar-thumb{background:var(--border);}
+.sensor-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;padding:4px 0;}
+.sensor-card{background:rgba(0,20,50,0.7);border:1px solid var(--border);padding:10px 12px;border-radius:2px;transition:border-color .2s;}
+.sensor-card.active{border-color:var(--cg);}
+.sensor-card.error-state{border-color:var(--ca);}
+.sensor-name{font-size:8px;letter-spacing:2px;color:var(--text2);margin-bottom:4px;}
+.sensor-value{font-size:22px;font-family:var(--mono);color:var(--cg);line-height:1;margin-bottom:4px;}
+.sensor-bar{height:3px;background:rgba(0,212,255,0.1);border-radius:2px;margin-bottom:7px;overflow:hidden;}
+.sensor-bar-fill{height:100%;background:var(--cg);transition:width .15s;border-radius:2px;}
+.sensor-bar-fill.high{background:var(--ca);}
+.sensor-empty{color:var(--text2);font-size:10px;font-style:italic;padding:16px 0;text-align:center;line-height:2;}
+/* Slider */
+.sensor-slider-row{display:flex;align-items:center;gap:6px;margin-bottom:5px;}
+.sensor-slider{flex:1;-webkit-appearance:none;appearance:none;height:3px;
+  background:rgba(0,212,255,0.2);border-radius:2px;outline:none;cursor:pointer;}
+.sensor-slider::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;
+  border-radius:50%;background:var(--c);cursor:grab;box-shadow:0 0 6px var(--c);}
+.sensor-slider::-webkit-slider-thumb:active{cursor:grabbing;background:#fff;}
+.slider-range{font-size:8px;color:var(--text2);font-family:var(--mono);white-space:nowrap;}
+/* Control buttons */
+.sensor-ctrl-btn{width:100%;padding:5px;background:rgba(0,212,255,0.08);
+  border:1px solid rgba(0,212,255,0.2);color:var(--text2);font-family:var(--mono);
+  font-size:9px;cursor:pointer;transition:all .2s;margin-top:3px;border-radius:1px;}
+.sensor-ctrl-btn:hover{background:rgba(0,212,255,0.18);border-color:var(--c);color:var(--c);}
+.sensor-ctrl-btn.tracking{background:rgba(0,255,136,0.15);border-color:var(--cg);color:var(--cg);animation:pulse 1s infinite;}
+.press-btn{border-color:rgba(255,107,0,0.3);color:var(--ca);}
+.press-btn:hover,.press-btn:active{background:rgba(255,107,0,0.2);border-color:var(--ca);}
+#wire-tooltip{position:fixed;z-index:200;pointer-events:none;display:none;
+  background:rgba(0,20,50,0.95);border:1px solid var(--border);padding:6px 10px;
+  font-size:9px;letter-spacing:1px;}
+#wire-cursor{position:fixed;z-index:200;pointer-events:none;display:none;
+  width:14px;height:14px;border:2px solid var(--ca);border-radius:50%;transform:translate(-50%,-50%);
+  box-shadow:0 0 8px var(--ca);}
+
+/* CONTEXT MENU */
+#ctx-menu{position:fixed;z-index:300;display:none;background:rgba(2,15,40,0.97);
+  border:1px solid var(--border);min-width:160px;backdrop-filter:blur(12px);}
+.ctx-item{padding:9px 16px;font-size:9px;letter-spacing:1px;cursor:pointer;transition:background .15s;}
+.ctx-item:hover{background:rgba(0,212,255,0.1);}
+.ctx-item.danger{color:var(--ca);}
+.ctx-separator{height:1px;background:var(--border);margin:3px 0;}
+
+/* TOAST */
+#toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:400;
+  background:rgba(0,20,50,0.97);border:1px solid var(--c);padding:10px 20px;
+  font-size:10px;letter-spacing:2px;display:none;pointer-events:none;}
+</style>
+</head>
+<body>
+<canvas id="mainCanvas"></canvas>
+<div id="scanlines"></div>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div id="logo">J.A.R.V.I.S</div>
+  <div id="subtitle">HOLOGRAPHIC ELECTRONICS LAB</div>
+  <div id="sim-controls">
+    <button class="ctrl-btn" id="btn-run" onclick="simRun()">▶ RUN</button>
+    <button class="ctrl-btn" id="btn-pause" onclick="simPause()">⏸ PAUSE</button>
+    <button class="ctrl-btn danger" id="btn-stop" onclick="simStop()">■ STOP</button>
+    <div id="status-dot" title="Simulation status"></div>
+    <div id="fps-counter">60fps</div>
+    <div style="width:1px;height:24px;background:var(--border);margin:0 6px;"></div>
+    <button class="ctrl-btn" id="btn-panels" onclick="toggleAllPanels()" title="Hide/Show UI panels">⊟ PANELS</button>
+    <button class="ctrl-btn" id="btn-fs" onclick="toggleFullscreen()" title="Fullscreen">⛶ FULL</button>
+  </div>
+</div>
+
+<!-- LEFT PANEL -->
+<div id="left-panel">
+  <div id="panel-title">COMPONENTS <button class="panel-toggle" onclick="toggleLeftPanel()">◀</button></div>
+  <div id="comp-list"></div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div id="right-panel">
+  <div id="prop-header">
+    <div id="prop-title">SELECT A COMPONENT</div>
+    <button class="panel-toggle" onclick="toggleRightPanel()">▶</button>
+  </div>
+  <div id="code-section">
+    <div id="code-toolbar">
+      <span>ARDUINO SKETCH</span>
+    </div>
+    <textarea id="editor" spellcheck="false" placeholder="// Select an Arduino/ESP32 to edit code...
+// Then click UPLOAD
+
+void setup() {
+  pinMode(13, OUTPUT);
+}
+
+void loop() {
+  digitalWrite(13, HIGH);
+  delay(500);
+  digitalWrite(13, LOW);
+  delay(500);
+}"></textarea>
+    <div id="upload-btn" onclick="uploadCode()">⚡ UPLOAD &amp; RUN</div>
+  </div>
+  <div id="prop-section" id="prop-section"></div>
+</div>
+
+<!-- BOTTOM PANEL -->
+<div id="bottom-panel">
+  <div id="bottom-resize" id="bottom-resize-handle"></div>
+  <div id="bottom-tabs">
+    <div class="btab active" id="tab-ai" onclick="switchTab('ai')">AI COMMAND</div>
+    <div class="btab" id="tab-serial" onclick="switchTab('serial')">SERIAL MONITOR</div>
+    <div class="btab" id="tab-sensors" onclick="switchTab('sensors')">LIVE SENSORS</div>
+    <button id="bottom-collapse-btn" onclick="toggleBottomPanel()" title="Collapse/Expand">▼</button>
+  </div>
+  <div id="ai-console" class="active">
+    <div id="ai-log"></div>
+    <div id="thinking-indicator">◈ JARVIS IS THINKING...</div>
+    <div id="ai-input-row">
+      <input id="ai-input" placeholder="Tell JARVIS what to build... e.g. 'traffic light circuit'" onkeydown="aiInputKey(event)">
+      <button id="ai-send" onclick="sendAICommand()">SEND</button>
+    </div>
+  </div>
+  <div id="serial-monitor"><div class="ai-msg system">Serial monitor ready. Upload code to see output.</div></div>
+  <div id="sensor-panel" style="display:none;flex:1;overflow-y:auto;padding:8px 12px;"></div>
+</div>
+
+<!-- NAV CONTROLS (trackpad-friendly) -->
+<div id="nav-controls">
+  <div class="nav-group">
+    <button class="nav-btn" id="nav-up" title="Orbit Up">↑</button>
+  </div>
+  <div class="nav-group">
+    <button class="nav-btn" id="nav-left" title="Orbit Left">←</button>
+    <button class="nav-btn" id="nav-reset" title="Reset View" onclick="resetView()" style="font-size:10px;letter-spacing:0px;">⌂</button>
+    <button class="nav-btn" id="nav-right" title="Orbit Right">→</button>
+  </div>
+  <div class="nav-group">
+    <button class="nav-btn" id="nav-down" title="Orbit Down">↓</button>
+  </div>
+  <div class="nav-group" style="margin-top:2px;">
+    <button class="nav-btn" id="nav-zoomin" title="Zoom In" onclick="orbit.radius=Math.max(5,orbit.radius-4);orbit.update()">+</button>
+    <button class="nav-btn" id="nav-zoomout" title="Zoom Out" onclick="orbit.radius=Math.min(120,orbit.radius+4);orbit.update()">−</button>
+  </div>
+</div>
+
+<!-- OVERLAYS -->
+<div id="wire-tooltip"></div>
+<div id="wire-cursor"></div>
+<div id="ctx-menu"></div>
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// JARVIS HOLOGRAPHIC ELECTRONICS LAB  
+// Full simulation system with Arduino interpreter, 3D holographics, AI
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── GLOBALS ──────────────────────────────────────────────────────────────
+const components = new Map(); // id → ComponentInstance
+const wires = new Map();       // id → WireInstance
+let selectedComp = null;
+let hoveredPin = null;
+let connectingPin = null; // active pin connection
+let simRunning = false;
+let frameCount = 0;
+let lastFpsTime = performance.now();
+
+// ── THREE.JS SETUP ────────────────────────────────────────────────────────
+const canvas = document.getElementById('mainCanvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ReinhardToneMapping;
+renderer.toneMappingExposure = 1.5;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x020810);
+scene.fog = new THREE.FogExp2(0x020810, 0.018);
+
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 500);
+camera.position.set(0, 28, 36);
+camera.lookAt(0, 0, 0);
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ── ORBIT CONTROLS (manual) ───────────────────────────────────────────────
+const orbit = {
+  theta: 0, phi: 0.72, radius: 46,
+  target: new THREE.Vector3(0, 0, 0),
+  dragging: false, lastX: 0, lastY: 0,
+  panDragging: false,
+  update() {
+    const x = this.radius * Math.sin(this.phi) * Math.sin(this.theta);
+    const y = this.radius * Math.cos(this.phi);
+    const z = this.radius * Math.sin(this.phi) * Math.cos(this.theta);
+    camera.position.set(this.target.x + x, this.target.y + y, this.target.z + z);
+    camera.lookAt(this.target);
+  }
+};
+orbit.update();
+
+// ── LIGHTS ────────────────────────────────────────────────────────────────
+const ambLight = new THREE.AmbientLight(0x020d1f, 2.5);
+scene.add(ambLight);
+const dirLight = new THREE.DirectionalLight(0x4080ff, 1.2);
+dirLight.position.set(10, 20, 10);
+dirLight.castShadow = true;
+scene.add(dirLight);
+const pointLight1 = new THREE.PointLight(0x00d4ff, 1.5, 60);
+pointLight1.position.set(-10, 15, 0);
+scene.add(pointLight1);
+const pointLight2 = new THREE.PointLight(0x0040ff, 1.0, 60);
+pointLight2.position.set(10, 10, -10);
+scene.add(pointLight2);
+
+// ── HOLOGRAPHIC ENVIRONMENT ───────────────────────────────────────────────
+// Grid floor
+const gridHelper = new THREE.GridHelper(100, 50, 0x003060, 0x001530);
+gridHelper.position.y = -0.1;
+scene.add(gridHelper);
+
+// Secondary fine grid
+const fineGrid = new THREE.GridHelper(100, 200, 0x001a40, 0x000d20);
+fineGrid.position.y = -0.05;
+scene.add(fineGrid);
+
+// Axis markers
+function makeAxisLine(color, dir) {
+  const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.3 });
+  const pts = [new THREE.Vector3(0,0,0), dir];
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  return new THREE.Line(geo, mat);
+}
+scene.add(makeAxisLine(0xff2020, new THREE.Vector3(15, 0, 0)));
+scene.add(makeAxisLine(0x20ff20, new THREE.Vector3(0, 15, 0)));
+scene.add(makeAxisLine(0x2020ff, new THREE.Vector3(0, 0, 15)));
+
+// Floating particles
+const particleGeo = new THREE.BufferGeometry();
+const pCount = 400;
+const pPos = new Float32Array(pCount * 3);
+for (let i = 0; i < pCount; i++) {
+  pPos[i*3]   = (Math.random()-0.5)*90;
+  pPos[i*3+1] = Math.random()*30;
+  pPos[i*3+2] = (Math.random()-0.5)*90;
+}
+particleGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+const particleMat = new THREE.PointsMaterial({ color:0x00d4ff, size:0.12, transparent:true, opacity:0.4 });
+const particles = new THREE.Points(particleGeo, particleMat);
+scene.add(particles);
+
+// ── MATERIALS LIBRARY ─────────────────────────────────────────────────────
+const MAT = {
+  pcbGreen: ()=>new THREE.MeshStandardMaterial({color:0x003820,emissive:0x001208,metalness:0.2,roughness:0.6,transparent:true,opacity:0.95}),
+  pcbBlue:  ()=>new THREE.MeshStandardMaterial({color:0x001850,emissive:0x000820,metalness:0.2,roughness:0.6,transparent:true,opacity:0.95}),
+  chip:     ()=>new THREE.MeshStandardMaterial({color:0x151515,emissive:0x050508,metalness:0.5,roughness:0.8}),
+  metal:    ()=>new THREE.MeshStandardMaterial({color:0xaaaaaa,metalness:0.85,roughness:0.15}),
+  gold:     ()=>new THREE.MeshStandardMaterial({color:0xffd700,metalness:0.9,roughness:0.1,emissive:0x3a2a00}),
+  ledBody:  (c,e)=>new THREE.MeshStandardMaterial({color:c,emissive:e,transparent:true,opacity:0.88,roughness:0.1}),
+  plastic:  (c)=>new THREE.MeshStandardMaterial({color:c,roughness:0.7,metalness:0.0}),
+  ceramic:  ()=>new THREE.MeshStandardMaterial({color:0xd4a06a,roughness:0.9,metalness:0.0}),
+  wire_d:   ()=>new THREE.MeshStandardMaterial({color:0x00d4ff,emissive:0x004060,roughness:0.3,metalness:0.5}),
+  wire_p:   ()=>new THREE.MeshStandardMaterial({color:0xff2020,emissive:0x400000,roughness:0.3}),
+  wire_g:   ()=>new THREE.MeshStandardMaterial({color:0x202020,roughness:0.5}),
+  wire_a:   ()=>new THREE.MeshStandardMaterial({color:0xffcc00,emissive:0x3a2a00,roughness:0.3}),
+  pinMat:   ()=>new THREE.MeshStandardMaterial({color:0xffcc44,emissive:0x2a1800,metalness:0.95,roughness:0.05}),
+  pinHover: ()=>new THREE.MeshStandardMaterial({color:0xffffff,emissive:0x00d4ff,roughness:0.1,metalness:0.5}),
+  pinActive:()=>new THREE.MeshStandardMaterial({color:0xff8800,emissive:0xff4400,roughness:0.1}),
+  glow:     (c,op)=>new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:op,side:THREE.BackSide}),
+  lcd_bg:   ()=>new THREE.MeshStandardMaterial({color:0x1a3a20,emissive:0x0a2010,roughness:0.8}),
+  screen:   ()=>new THREE.MeshStandardMaterial({color:0x001a00,emissive:0x002800,roughness:1.0}),
+};
+
+// ── RAYCASTER ─────────────────────────────────────────────────────────────
+const raycaster = new THREE.Raycaster();
+const mouse2D = new THREE.Vector2();
+const groundPlane = new THREE.Plane(new THREE.Vector3(0,1,0), 0);
+
+function getMouseRay(e) {
+  const rect = canvas.getBoundingClientRect();
+  mouse2D.x = ((e.clientX - rect.left)/rect.width)*2 - 1;
+  mouse2D.y = -((e.clientY - rect.top)/rect.height)*2 + 1;
+  raycaster.setFromCamera(mouse2D, camera);
+  return raycaster;
+}
+
+function raycastGround(e) {
+  const r = getMouseRay(e);
+  const pt = new THREE.Vector3();
+  r.ray.intersectPlane(groundPlane, pt);
+  return pt;
+}
+
+// ── PIN SYSTEM ────────────────────────────────────────────────────────────
+class PinObject {
+  constructor(parent, name, type, localPos, dir='io') {
+    this.parent = parent; // ComponentInstance
+    this.name = name;
+    this.type = type; // 'digital','analog','power','ground','i2c_sda','i2c_scl','signal','pwm','io'
+    this.dir = dir;   // 'input','output','io','power','ground'
+    this.value = 0;   // 0-1 normalized
+    this.connections = []; // connected PinObjects
+    this.localPos = localPos.clone(); // position relative to component
+    
+    // 3D mesh
+    this.mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.22, 8, 8),
+      MAT.pinMat()
+    );
+    this.mesh.userData.pin = this;
+    this.mesh.userData.isPinMesh = true;
+    parent.group.add(this.mesh);
+    this.mesh.position.copy(localPos);
+    
+    // Glow sphere
+    this.glowMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.35, 8, 8),
+      MAT.glow(0x00d4ff, 0.0)
+    );
+    parent.group.add(this.glowMesh);
+    this.glowMesh.position.copy(localPos);
+  }
+  
+  worldPos() {
+    const wp = new THREE.Vector3();
+    this.mesh.getWorldPosition(wp);
+    return wp;
+  }
+  
+  setHighlight(mode) {
+    if (mode === 'hover') {
+      this.mesh.material = MAT.pinHover();
+      this.glowMesh.material = MAT.glow(0x00d4ff, 0.25);
+      this.mesh.scale.setScalar(1.4);
+    } else if (mode === 'active') {
+      this.mesh.material = MAT.pinActive();
+      this.glowMesh.material = MAT.glow(0xff8800, 0.35);
+      this.mesh.scale.setScalar(1.6);
+    } else if (mode === 'connected') {
+      this.glowMesh.material = MAT.glow(0x00ff88, 0.2);
+      this.mesh.scale.setScalar(1.0);
+    } else {
+      this.mesh.material = MAT.pinMat();
+      this.glowMesh.material = MAT.glow(0x00d4ff, 0.0);
+      this.mesh.scale.setScalar(1.0);
+    }
+  }
+  
+  setValue(v) {
+    this.value = Math.max(0, Math.min(1, v));
+    // Propagate to connections
+    for (const other of this.connections) {
+      if (other.value !== this.value) {
+        other.value = this.value;
+        other.parent.onPinChange(other.name, this.value);
+      }
+    }
+  }
+  
+  connect(other) {
+    if (!this.connections.includes(other)) this.connections.push(other);
+    if (!other.connections.includes(this)) other.connections.push(this);
+    this.setHighlight('connected');
+    other.setHighlight('connected');
+  }
+  
+  disconnect(other) {
+    this.connections = this.connections.filter(p=>p!==other);
+    other.connections = other.connections.filter(p=>p!==this);
+    if (this.connections.length === 0) this.setHighlight('');
+    if (other.connections.length === 0) other.setHighlight('');
+  }
+}
+
+// ── WIRE RENDERER ─────────────────────────────────────────────────────────
+class Wire3D {
+  constructor(pinA, pinB) {
+    this.id = 'w_'+Math.random().toString(36).substr(2,8);
+    this.pinA = pinA;
+    this.pinB = pinB;
+    this.mesh = null;
+    this.active = false;
+    this.build();
+    pinA.connect(pinB);
+    wires.set(this.id, this);
+  }
+  
+  getColor() {
+    const t = this.pinA.type;
+    if (t === 'power') return 0xff3020;
+    if (t === 'ground') return 0x606060;
+    if (t === 'analog') return 0xffcc00;
+    return 0x00d4ff;
+  }
+  
+  build() {
+    if (this.mesh) { scene.remove(this.mesh); this.mesh.geometry.dispose(); }
+    const pA = this.pinA.worldPos();
+    const pB = this.pinB.worldPos();
+    const mid = new THREE.Vector3().lerpVectors(pA, pB, 0.5);
+    mid.y += Math.max(2, pA.distanceTo(pB) * 0.3);
+    const curve = new THREE.CatmullRomCurve3([pA, mid, pB]);
+    const geo = new THREE.TubeGeometry(curve, 20, 0.07, 6, false);
+    const mat = new THREE.MeshStandardMaterial({
+      color: this.getColor(),
+      emissive: this.getColor(),
+      emissiveIntensity: 0.4,
+      metalness: 0.5, roughness: 0.3
+    });
+    this.mesh = new THREE.Mesh(geo, mat);
+    this.mesh.userData.wire = this;
+    this.mesh.userData.isWire = true;
+    scene.add(this.mesh);
+  }
+  
+  update() {
+    // Rebuild if positions changed
+    this.build();
+    // Animate based on signal
+    const v = Math.max(this.pinA.value, this.pinB.value);
+    this.mesh.material.emissiveIntensity = 0.2 + v * 0.8;
+    this.active = v > 0.01;
+  }
+  
+  remove() {
+    if (this.mesh) scene.remove(this.mesh);
+    this.pinA.disconnect(this.pinB);
+    wires.delete(this.id);
+  }
+}
+
+// ── COMPONENT BASE ────────────────────────────────────────────────────────
+class ComponentInstance {
+  constructor(type, name, pos) {
+    this.type = type;
+    this.name = name;
+    this.id = 'c_'+Math.random().toString(36).substr(2,8);
+    this.group = new THREE.Group();
+    this.group.userData.component = this;
+    this.group.userData.isComponent = true;
+    this.group.position.set(pos.x, pos.y || 0, pos.z || 0);
+    this.pins = {}; // name → PinObject
+    this.state = {};
+    this.simulator = null; // ArduinoSim if applicable
+    scene.add(this.group);
+    components.set(this.id, this);
+    
+    // Glow mesh (outer)
+    this.selected = false;
+  }
+  
+  addPin(name, type, localPos, dir='io') {
+    const pin = new PinObject(this, name, type, localPos, dir);
+    this.pins[name] = pin;
+    return pin;
+  }
+  
+  getPin(name) { return this.pins[name]; }
+  
+  onPinChange(pinName, value) { /* Override */ }
+  
+  setSelected(sel) {
+    this.selected = sel;
+    this.updateGlow();
+  }
+  
+  updateGlow() { /* Override */ }
+  
+  getAllMeshes() {
+    const meshes = [];
+    this.group.traverse(obj => { if (obj.isMesh) meshes.push(obj); });
+    return meshes;
+  }
+  
+  getProperties() { return { type: this.type, name: this.name }; }
+  
+  remove() {
+    scene.remove(this.group);
+    // Disconnect all pins
+    for (const pin of Object.values(this.pins)) {
+      const conns = [...pin.connections];
+      for (const other of conns) pin.disconnect(other);
+    }
+    // Remove associated wires
+    for (const [wid, wire] of wires) {
+      if (wire.pinA.parent === this || wire.pinB.parent === this) wire.remove();
+    }
+    if (this.simulator) this.simulator.stop();
+    components.delete(this.id);
+  }
+  
+  tick(dt) { /* Override: called each simulation frame */ }
+}
+
+// ── ARDUINO UNO ───────────────────────────────────────────────────────────
+class ArduinoUno extends ComponentInstance {
+  constructor(name, pos) {
+    super('arduino_uno', name, pos);
+    this.buildMesh();
+    this.buildPins();
+    this.simulator = new ArduinoSimulator(this);
+    this.state.code = DEFAULT_BLINK_CODE;
+  }
+  
+  buildMesh() {
+    // PCB body
+    const pcb = new THREE.Mesh(new THREE.BoxGeometry(5.4, 0.22, 7.0), MAT.pcbGreen());
+    pcb.castShadow = true;
+    this.group.add(pcb);
+    
+    // Main chip (ATmega328P)
+    const chip = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.35, 1.4), MAT.chip());
+    chip.position.set(0.3, 0.28, 0.5);
+    this.group.add(chip);
+    
+    // Chip legs (simplified)
+    for (let i = 0; i < 4; i++) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.1,1.2), MAT.gold());
+      leg.position.set(0.3 + (i%2===0?-0.75:0.75), 0.22, 0.5+(i<2?0:0));
+      this.group.add(leg);
+    }
+    
+    // Crystal oscillator
+    const xtal = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.6, 6), MAT.metal());
+    xtal.position.set(-0.5, 0.28, 0.5);
+    this.group.add(xtal);
+    
+    // USB connector (Type B)
+    const usb = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.7, 1.0), MAT.metal());
+    usb.position.set(0, 0.35, -3.8);
+    this.group.add(usb);
+    
+    // USB port hole
+    const usbInner = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.45, 0.2), 
+      new THREE.MeshStandardMaterial({color:0x111111}));
+    usbInner.position.set(0, 0.35, -4.3);
+    this.group.add(usbInner);
+    
+    // DC Power jack
+    const jack = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.8, 10), MAT.metal());
+    jack.rotation.x = Math.PI/2;
+    jack.position.set(-1.8, 0.3, -3.6);
+    this.group.add(jack);
+    
+    // Voltage regulator
+    const vreg = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.5, 0.65), 
+      new THREE.MeshStandardMaterial({color:0x202020}));
+    vreg.position.set(-1.8, 0.35, -2.0);
+    this.group.add(vreg);
+    
+    // Reset button
+    const resetBtn = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.25, 8), 
+      new THREE.MeshStandardMaterial({color:0xcc3010}));
+    resetBtn.position.set(-1.9, 0.22, 1.2);
+    this.group.add(resetBtn);
+    
+    // Pin headers (digital 0-13 row)
+    const hdrMat = new THREE.MeshStandardMaterial({color:0x111111, roughness:0.8});
+    const dHdr = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.32, 5.6), hdrMat);
+    dHdr.position.set(2.5, 0.27, 0.0);
+    this.group.add(dHdr);
+    
+    // Analog header
+    const aHdr = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.32, 2.6), hdrMat);
+    aHdr.position.set(-2.5, 0.27, 0.6);
+    this.group.add(aHdr);
+    
+    // Power header
+    const pHdr = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.32, 2.2), hdrMat);
+    pHdr.position.set(-2.5, 0.27, -1.5);
+    this.group.add(pHdr);
+    
+    // LED indicators
+    const ledTXMat = new THREE.MeshStandardMaterial({color:0xffcc00,emissive:0x806600,transparent:true,opacity:0.9});
+    const ledRXMat = new THREE.MeshStandardMaterial({color:0xffcc00,emissive:0x806600,transparent:true,opacity:0.9});
+    const ledPowMat = new THREE.MeshStandardMaterial({color:0x00ff40,emissive:0x00aa20,transparent:true,opacity:0.9});
+    this.state.ledMeshes = {};
+    const txLed = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.12,0.12),ledTXMat);
+    txLed.position.set(-0.5, 0.2, -2.8);
+    this.state.ledMeshes.tx = txLed; this.group.add(txLed);
+    const rxLed = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.12,0.12),ledRXMat);
+    rxLed.position.set(-0.8, 0.2, -2.8);
+    this.state.ledMeshes.rx = rxLed; this.group.add(rxLed);
+    const powLed = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.12,0.12),ledPowMat);
+    powLed.position.set(-1.1, 0.2, -2.8);
+    this.state.ledMeshes.pwr = powLed; this.group.add(powLed);
+    
+    // Label
+    this.addLabel('ARDUINO UNO', 0.0, 0.2, 2.5, 0.7);
+    
+    // Glow halo
+    this.glowMesh = new THREE.Mesh(new THREE.BoxGeometry(5.8, 0.5, 7.4), MAT.glow(0x00d4ff, 0.04));
+    this.group.add(this.glowMesh);
+  }
+  
+  addLabel(text, x, y, z, scale) {
+    // Simple label using a small plane (no canvas needed)
+    // Labels are implied by component shape in holographic mode
+  }
+  
+  buildPins() {
+    // Digital pins D0-D13 (right side)
+    const dNames = ['D0/RX','D1/TX','D2','D3~','D4','D5~','D6~','D7','D8','D9~','D10~','D11~','D12','D13'];
+    const dTypes = ['digital','digital','digital','digital','digital','digital','digital','digital',
+                    'digital','digital','digital','digital','digital','digital'];
+    for (let i = 0; i < 14; i++) {
+      const pn = `D${i}`;
+      const z = -3.2 + i * (6.4/13);
+      this.addPin(pn, dTypes[i], new THREE.Vector3(2.82, 0.28, z));
+    }
+    // Analog pins A0-A5 (left side, upper)
+    for (let i = 0; i < 6; i++) {
+      const pn = `A${i}`;
+      this.addPin(pn, 'analog', new THREE.Vector3(-2.82, 0.28, -0.3 + i * 0.58));
+    }
+    // Power pins (left side, lower)
+    this.addPin('IOREF', 'power', new THREE.Vector3(-2.82, 0.28, -1.0), 'power');
+    this.addPin('RESET', 'digital', new THREE.Vector3(-2.82, 0.28, -1.38));
+    this.addPin('3.3V',  'power',   new THREE.Vector3(-2.82, 0.28, -1.76), 'power');
+    this.addPin('5V',    'power',   new THREE.Vector3(-2.82, 0.28, -2.14), 'power');
+    this.addPin('GND',   'ground',  new THREE.Vector3(-2.82, 0.28, -2.52), 'ground');
+    this.addPin('GND2',  'ground',  new THREE.Vector3(-2.82, 0.28, -2.90), 'ground');
+    this.addPin('VIN',   'power',   new THREE.Vector3(-2.82, 0.28, -3.28), 'power');
+  }
+  
+  onPinChange(pinName, value) {
+    // Update visual LED on pin 13
+    if (pinName === 'D13' && this.state.ledMeshes) {
+      const v = value;
+      this.state.ledMeshes.tx.material.emissive.setHex(v > 0.5 ? 0xcc6600 : 0x201000);
+    }
+  }
+  
+  updateGlow() {
+    if (!this.glowMesh) return;
+    this.glowMesh.material.opacity = this.selected ? 0.12 : 0.04;
+    this.glowMesh.material.color.setHex(this.selected ? 0xff8800 : 0x00d4ff);
+  }
+  
+  getProperties() {
+    return { type:'Arduino Uno', name:this.name, chip:'ATmega328P', freq:'16MHz',
+      flash:'32KB', ram:'2KB', eeprom:'1KB', pins_digital:'14', pins_analog:'6' };
+  }
+  
+  tick(dt) {
+    if (simRunning && this.simulator) this.simulator.tick();
+  }
+}
+
+// ── ESP32 ─────────────────────────────────────────────────────────────────
+class ESP32 extends ComponentInstance {
+  constructor(name, pos) {
+    super('esp32', name, pos);
+    this.buildMesh();
+    this.buildPins();
+    this.simulator = new ArduinoSimulator(this);
+    this.state.code = DEFAULT_ESP32_CODE;
+  }
+  
+  buildMesh() {
+    const pcb = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.2, 5.2), MAT.pcbBlue());
+    this.group.add(pcb);
+    // ESP32 module on top
+    const module = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.35, 3.2), 
+      new THREE.MeshStandardMaterial({color:0x111a11, metalness:0.3, roughness:0.7}));
+    module.position.set(0, 0.27, 0);
+    this.group.add(module);
+    // Antenna trace
+    const ant = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.6), MAT.gold());
+    ant.position.set(0.8, 0.28, -1.8);
+    this.group.add(ant);
+    // Chip
+    const chip = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.2, 0.6), MAT.chip());
+    chip.position.set(0, 0.45, 0);
+    this.group.add(chip);
+    // USB micro
+    const usb = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.35, 0.5), MAT.metal());
+    usb.position.set(0, 0.25, -2.9);
+    this.group.add(usb);
+    
+    this.glowMesh = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.5, 5.4), MAT.glow(0x00d4ff, 0.04));
+    this.group.add(this.glowMesh);
+  }
+  
+  buildPins() {
+    const leftPins = ['3.3V','GND','D15','D2','D4','RX2','TX2','D25','D26','D27','D14','D12','D13'];
+    const rightPins = ['VIN','GND2','D23','D22','TX0','RX0','D21','D19','D18','D5','D17','D16','D4r'];
+    for (let i = 0; i < leftPins.length; i++) {
+      const type = leftPins[i]==='3.3V'||leftPins[i]==='VIN'?'power':leftPins[i].startsWith('GND')?'ground':'digital';
+      this.addPin(leftPins[i], type, new THREE.Vector3(-1.55, 0.2, 2.0 - i*0.4), type==='power'?'power':type==='ground'?'ground':'io');
+    }
+    for (let i = 0; i < rightPins.length; i++) {
+      const type = rightPins[i]==='VIN'?'power':rightPins[i].startsWith('GND')?'ground':'digital';
+      this.addPin(rightPins[i], type, new THREE.Vector3(1.55, 0.2, 2.0 - i*0.4), type==='power'?'power':type==='ground'?'ground':'io');
+    }
+  }
+  
+  onPinChange(pinName, value) {}
+  updateGlow() {
+    if (!this.glowMesh) return;
+    this.glowMesh.material.opacity = this.selected ? 0.12 : 0.04;
+    this.glowMesh.material.color.setHex(this.selected ? 0xff8800 : 0x00d4ff);
+  }
+  getProperties() { return { type:'ESP32', name:this.name, chip:'ESP32-WROOM', freq:'240MHz', flash:'4MB', ram:'520KB', wifi:'802.11 b/g/n', bt:'BT 4.2' }; }
+  tick(dt) { if (simRunning && this.simulator) this.simulator.tick(); }
+}
+
+// ── LED ───────────────────────────────────────────────────────────────────
+class LEDComponent extends ComponentInstance {
+  constructor(name, pos, color) {
+    super('led', name, pos);
+    this.ledColor = color || 'red';
+    this.buildMesh();
+    this.buildPins();
+    this.state.brightness = 0;
+  }
+  
+  getColors() {
+    const map = {
+      red:   {body:0xff2020, emissive:0x600000, light:0xff0000},
+      green: {body:0x20ff40, emissive:0x006010, light:0x00ff40},
+      blue:  {body:0x2060ff, emissive:0x001060, light:0x0040ff},
+      yellow:{body:0xffee20, emissive:0x605000, light:0xffee00},
+      white: {body:0xffffff, emissive:0x404040, light:0xffffff},
+      orange:{body:0xff6010, emissive:0x602000, light:0xff6000},
+    };
+    return map[this.ledColor] || map.red;
+  }
+  
+  buildMesh() {
+    const c = this.getColors();
+    // Cylindrical body
+    this.bodyMat = new THREE.MeshStandardMaterial({color:c.body, emissive:0x000000, transparent:true, opacity:0.88, roughness:0.1});
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.3, 0.9, 12), this.bodyMat);
+    body.position.y = 0.45;
+    this.group.add(body);
+    // Dome on top
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 8, 0, Math.PI*2, 0, Math.PI/2), this.bodyMat);
+    dome.position.y = 0.9;
+    this.group.add(dome);
+    // Flat base ring
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.1, 12), MAT.plastic(0x222222));
+    base.position.y = 0.05;
+    this.group.add(base);
+    // Leads
+    const anode = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.2,6), MAT.gold());
+    anode.position.set(0.1, -0.6, 0); this.group.add(anode);
+    const cathode = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.1,6), MAT.gold());
+    cathode.position.set(-0.1, -0.55, 0); this.group.add(cathode);
+    
+    // Point light (emits when on)
+    this.light = new THREE.PointLight(c.light, 0, 8);
+    this.light.position.y = 1.2;
+    this.group.add(this.light);
+    
+    // Glow sphere
+    this.glowBall = new THREE.Mesh(new THREE.SphereGeometry(0.45,12,12), MAT.glow(c.light, 0.0));
+    this.glowBall.position.y = 1.0;
+    this.group.add(this.glowBall);
+  }
+  
+  buildPins() {
+    this.addPin('anode',   'digital', new THREE.Vector3(0.1, -1.2, 0), 'input');
+    this.addPin('cathode', 'ground',  new THREE.Vector3(-0.1, -1.1, 0), 'ground');
+  }
+  
+  onPinChange(pinName, value) {
+    if (pinName === 'anode') this.setBrightness(value);
+  }
+  
+  setBrightness(v) {
+    this.state.brightness = v;
+    const c = this.getColors();
+    const e = new THREE.Color(c.emissive);
+    const b = new THREE.Color(c.body);
+    this.bodyMat.emissive.lerpColors(new THREE.Color(0), e, v);
+    this.bodyMat.emissive.lerp(new THREE.Color(c.body), v*0.5);
+    this.bodyMat.color.lerpColors(b, new THREE.Color(0xffffff), v*0.3);
+    this.light.intensity = v * 2.5;
+    this.glowBall.material.opacity = v * 0.3;
+  }
+  
+  updateGlow() {}
+  getProperties() { return { type:'LED', name:this.name, color:this.ledColor, brightness: (this.state.brightness*100).toFixed(0)+'%' }; }
+  tick(dt) {
+    // Smooth brightness
+    const anodePin = this.pins['anode'];
+    if (anodePin) this.setBrightness(anodePin.value);
+  }
+}
+
+// ── RESISTOR ──────────────────────────────────────────────────────────────
+class Resistor extends ComponentInstance {
+  constructor(name, pos, ohms) {
+    super('resistor', name, pos);
+    this.ohms = ohms || 220;
+    this.buildMesh();
+    this.buildPins();
+  }
+  
+  getBands() {
+    const bandColors = [0x111111,0x8B4513,0xff0000,0xff8c00,0xffff00,0x228b22,0x0000ff,0x8b008b,0x808080,0xffffff];
+    const v = this.ohms;
+    if (v < 10) return [bandColors[0], bandColors[v], bandColors[0]];
+    const d1 = Math.floor(v/100) % 10;
+    const d2 = Math.floor(v/10) % 10;
+    const mult = Math.floor(Math.log10(v)) - 1;
+    return [bandColors[d1]||bandColors[0], bandColors[d2]||bandColors[0], bandColors[Math.max(0,mult)]||bandColors[0]];
+  }
+  
+  buildMesh() {
+    const bands = this.getBands();
+    // Ceramic body
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.18,1.2,10), MAT.ceramic());
+    body.rotation.z = Math.PI/2;
+    this.group.add(body);
+    // Color bands
+    const bPos = [-0.35, 0, 0.35];
+    for (let i = 0; i < 3; i++) {
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.19,0.19,0.12,10),
+        new THREE.MeshStandardMaterial({color:bands[i]}));
+      band.rotation.z = Math.PI/2;
+      band.position.x = bPos[i];
+      this.group.add(band);
+    }
+    // Leads
+    const lead1 = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,1.2,6),MAT.metal());
+    lead1.rotation.z = Math.PI/2; lead1.position.x = -1.2;
+    this.group.add(lead1);
+    const lead2 = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,1.2,6),MAT.metal());
+    lead2.rotation.z = Math.PI/2; lead2.position.x = 1.2;
+    this.group.add(lead2);
+  }
+  
+  buildPins() {
+    this.addPin('pin1', 'digital', new THREE.Vector3(-1.8, 0, 0));
+    this.addPin('pin2', 'digital', new THREE.Vector3(1.8, 0, 0));
+  }
+  
+  onPinChange(pinName, value) {
+    // Pass signal through (resistors pass signal with slight loss)
+    if (pinName === 'pin1') this.pins['pin2'].setValue(value * 0.98);
+    else this.pins['pin1'].setValue(value * 0.98);
+  }
+  
+  updateGlow() {}
+  getProperties() { return { type:'Resistor', name:this.name, resistance: this.ohms+'Ω' }; }
+}
+
+// ── LCD 16x2 ──────────────────────────────────────────────────────────────
+class LCD16x2 extends ComponentInstance {
+  constructor(name, pos) {
+    super('lcd', name, pos);
+    this.displayData = ['                ','                ']; // 16 chars × 2 rows
+    this.cursorCol = 0; this.cursorRow = 0;
+    this.buildMesh();
+    this.buildPins();
+    this.buildScreen();
+  }
+  
+  buildMesh() {
+    // PCB
+    const pcb = new THREE.Mesh(new THREE.BoxGeometry(8.0, 0.2, 3.6), MAT.pcbBlue());
+    this.group.add(pcb);
+    // Display bezel
+    const bezel = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.22, 2.8),
+      new THREE.MeshStandardMaterial({color:0x001a40, roughness:0.9}));
+    bezel.position.y = 0.21;
+    this.group.add(bezel);
+    // Screen area
+    this.screenMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(6.2, 2.3),
+      new THREE.MeshBasicMaterial({color:0x003300})
+    );
+    this.screenMesh.rotation.x = -Math.PI/2;
+    this.screenMesh.position.set(0, 0.33, 0);
+    this.group.add(this.screenMesh);
+    
+    // Backlight glow
+    this.backlight = new THREE.PointLight(0x00ff40, 0, 6);
+    this.backlight.position.set(0, 1, 0);
+    this.group.add(this.backlight);
+    
+    this.glowMesh = new THREE.Mesh(new THREE.BoxGeometry(8.4, 0.5, 4.0), MAT.glow(0x00ff40, 0.04));
+    this.group.add(this.glowMesh);
+  }
+  
+  buildScreen() {
+    // Create canvas texture for the LCD screen
+    this.screenCanvas = document.createElement('canvas');
+    this.screenCanvas.width = 320; this.screenCanvas.height = 100;
+    this.screenCtx = this.screenCanvas.getContext('2d');
+    this.screenTex = new THREE.CanvasTexture(this.screenCanvas);
+    this.screenMesh.material = new THREE.MeshBasicMaterial({map:this.screenTex});
+    this.updateScreenTexture();
+  }
+  
+  updateScreenTexture() {
+    const ctx = this.screenCtx;
+    ctx.fillStyle = '#003300';
+    ctx.fillRect(0,0,320,100);
+    ctx.fillStyle = '#00ff40';
+    ctx.font = 'bold 28px monospace';
+    const line1 = (this.displayData[0]||'').padEnd(16).substr(0,16);
+    const line2 = (this.displayData[1]||'').padEnd(16).substr(0,16);
+    ctx.fillText(line1, 10, 38);
+    ctx.fillText(line2, 10, 78);
+    this.screenTex.needsUpdate = true;
+    this.backlight.intensity = 1.5;
+  }
+  
+  buildPins() {
+    this.addPin('VCC','power',new THREE.Vector3(-3.5, 0.2, 2.2),'power');
+    this.addPin('GND','ground',new THREE.Vector3(-2.9, 0.2, 2.2),'ground');
+    this.addPin('SDA','i2c_sda',new THREE.Vector3(-2.3, 0.2, 2.2));
+    this.addPin('SCL','i2c_scl',new THREE.Vector3(-1.7, 0.2, 2.2));
+    this.addPin('A','power',new THREE.Vector3(2.9, 0.2, 2.2),'power');
+    this.addPin('K','ground',new THREE.Vector3(3.5, 0.2, 2.2),'ground');
+  }
+  
+  // Called by LCD library simulation
+  setLine(row, text) {
+    if (row === 0 || row === 1) {
+      this.displayData[row] = text;
+      this.updateScreenTexture();
+    }
+  }
+  
+  setCursor(col, row) { this.cursorCol = col; this.cursorRow = row; }
+  
+  print(text) {
+    let s = String(text);
+    let row = this.cursorRow || 0;
+    let col = this.cursorCol || 0;
+    for (const ch of s) {
+      let line = (this.displayData[row]||'').padEnd(16,' ').split('');
+      if (col < 16) line[col] = ch;
+      this.displayData[row] = line.join('');
+      col++;
+      if (col >= 16) { col = 0; row = (row+1)%2; }
+    }
+    this.cursorCol = col; this.cursorRow = row;
+    this.updateScreenTexture();
+  }
+  
+  clear() {
+    this.displayData = ['                ','                '];
+    this.cursorCol = 0; this.cursorRow = 0;
+    this.updateScreenTexture();
+  }
+  
+  onPinChange(pin, val) {}
+  updateGlow() {
+    if (!this.glowMesh) return;
+    this.glowMesh.material.opacity = this.selected ? 0.12 : 0.04;
+  }
+  getProperties() { return { type:'LCD 16×2', name:this.name, interface:'I2C', address:'0x27', chars:'16×2' }; }
+}
+
+// ── SERVO MOTOR ───────────────────────────────────────────────────────────
+class ServoMotor extends ComponentInstance {
+  constructor(name, pos) {
+    super('servo', name, pos);
+    this.angle = 90;
+    this.targetAngle = 90;
+    this.buildMesh();
+    this.buildPins();
+  }
+  
+  buildMesh() {
+    // Body
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2.3, 2.4, 1.2), MAT.plastic(0x333333));
+    this.group.add(body);
+    // Top face
+    const top = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.1, 1.0), MAT.plastic(0x444444));
+    top.position.y = 1.25;
+    this.group.add(top);
+    // Motor shaft
+    this.shaft = new THREE.Group();
+    this.shaft.position.set(0, 1.36, 0);
+    this.group.add(this.shaft);
+    const sprockett = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.2, 16), MAT.metal());
+    this.shaft.add(sprockett);
+    // Servo arm
+    this.arm = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.12, 0.28),
+      new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.6}));
+    this.arm.position.set(0.6, 0.2, 0);
+    this.shaft.add(this.arm);
+    // Mounting ears
+    const ear1 = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.25, 1.4), MAT.plastic(0x333333));
+    ear1.position.set(1.18, -0.9, 0); this.group.add(ear1);
+    const ear2 = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.25, 1.4), MAT.plastic(0x333333));
+    ear2.position.set(-1.18, -0.9, 0); this.group.add(ear2);
+    
+    this.glowMesh = new THREE.Mesh(new THREE.BoxGeometry(2.7, 2.8, 1.6), MAT.glow(0x00d4ff, 0.04));
+    this.group.add(this.glowMesh);
+  }
+  
+  buildPins() {
+    this.addPin('signal', 'signal', new THREE.Vector3(-1.5, -0.8, 0.7));
+    this.addPin('VCC', 'power', new THREE.Vector3(-1.5, -0.8, 0.3), 'power');
+    this.addPin('GND', 'ground', new THREE.Vector3(-1.5, -0.8, -0.1), 'ground');
+  }
+  
+  onPinChange(pinName, value) {
+    if (pinName === 'signal') {
+      // PWM value 0-1 → angle 0-180
+      this.targetAngle = value * 180;
+    }
+  }
+  
+  updateGlow() {
+    if (!this.glowMesh) return;
+    this.glowMesh.material.opacity = this.selected ? 0.12 : 0.04;
+  }
+  
+  getProperties() { return { type:'Servo Motor', name:this.name, angle: this.angle.toFixed(1)+'°', range:'0-180°', protocol:'PWM 50Hz' }; }
+  
+  tick(dt) {
+    // Smooth rotation
+    const diff = this.targetAngle - this.angle;
+    this.angle += diff * 0.1;
+    if (this.shaft) this.shaft.rotation.y = (this.angle * Math.PI/180) - Math.PI/2;
+  }
+}
+
+// ── PUSH BUTTON ───────────────────────────────────────────────────────────
+class PushButton extends ComponentInstance {
+  constructor(name, pos) {
+    super('button', name, pos);
+    this.pressed = false;
+    this.buildMesh();
+    this.buildPins();
+  }
+  
+  buildMesh() {
+    // Base
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.22, 0.9), MAT.plastic(0x111111));
+    this.group.add(base);
+    // Legs
+    const legPos = [[0.35,0.35],[0.35,-0.35],[-0.35,0.35],[-0.35,-0.35]];
+    for (const [x,z] of legPos) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.4,6), MAT.gold());
+      leg.position.set(x,-0.31,z); this.group.add(leg);
+    }
+    // Button cap
+    this.cap = new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.28,0.25,12),
+      new THREE.MeshStandardMaterial({color:0x1060ff, roughness:0.5}));
+    this.cap.position.y = 0.24;
+    this.group.add(this.cap);
+    
+    this.group.userData.clickable = true;
+  }
+  
+  buildPins() {
+    this.addPin('pin1', 'digital', new THREE.Vector3(0.55, -0.4, 0.55));
+    this.addPin('pin2', 'digital', new THREE.Vector3(-0.55, -0.4, 0.55));
+    this.addPin('pin3', 'digital', new THREE.Vector3(0.55, -0.4, -0.55));
+    this.addPin('pin4', 'digital', new THREE.Vector3(-0.55, -0.4, -0.55));
+  }
+  
+  setPressed(p) {
+    this.pressed = p;
+    if (this.cap) this.cap.position.y = p ? 0.14 : 0.24;
+    const v = p ? 1 : 0;
+    this.pins['pin1'].setValue(v); this.pins['pin3'].setValue(v);
+  }
+  
+  onPinChange(pin, val) {}
+  updateGlow() {}
+  getProperties() { return { type:'Push Button', name:this.name, state: this.pressed?'PRESSED':'RELEASED' }; }
+}
+
+// ── POTENTIOMETER ─────────────────────────────────────────────────────────
+class Potentiometer extends ComponentInstance {
+  constructor(name, pos) {
+    super('potentiometer', name, pos);
+    this.value = 0.5; // 0-1
+    this.buildMesh();
+    this.buildPins();
+  }
+  
+  buildMesh() {
+    // Body
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.7,0.7,0.6,16), MAT.plastic(0x222222));
+    this.group.add(body);
+    // Shaft
+    this.shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,0.5,8), MAT.metal());
+    this.shaft.position.y = 0.55;
+    this.group.add(this.shaft);
+    // Indicator line on shaft
+    const mark = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.52, 0.22),
+      new THREE.MeshStandardMaterial({color:0xffffff}));
+    mark.position.y = 0.55;
+    this.group.add(mark);
+    // Pins
+    for (let i = -1; i <= 1; i++) {
+      const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.4,6), MAT.gold());
+      pin.position.set(i*0.35, -0.5, 0);
+      this.group.add(pin);
+    }
+  }
+  
+  buildPins() {
+    this.addPin('vcc', 'power', new THREE.Vector3(0.35, -0.7, 0), 'power');
+    this.addPin('out', 'analog', new THREE.Vector3(0, -0.7, 0), 'output');
+    this.addPin('gnd', 'ground', new THREE.Vector3(-0.35, -0.7, 0), 'ground');
+  }
+  
+  setValue(v) {
+    this.value = Math.max(0, Math.min(1, v));
+    if (this.shaft) this.shaft.rotation.y = this.value * Math.PI * 1.5 - Math.PI*0.75;
+    this.pins['out'].setValue(this.value);
+  }
+  
+  onPinChange(pin, val) {}
+  updateGlow() {}
+  getProperties() { return { type:'Potentiometer', name:this.name, value:(this.value*100).toFixed(0)+'%', voltage:(this.value*5).toFixed(2)+'V' }; }
+}
+
+// ── DHT11 SENSOR ──────────────────────────────────────────────────────────
+class DHT11 extends ComponentInstance {
+  constructor(name, pos) {
+    super('dht11', name, pos);
+    this.temperature = 25.0;
+    this.humidity = 60.0;
+    this.buildMesh();
+    this.buildPins();
+  }
+  
+  buildMesh() {
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.4, 0.6), MAT.plastic(0x0050aa));
+    this.group.add(body);
+    // Mesh grill on front
+    for (let i = 0; i < 5; i++) {
+      const slot = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.08,0.05),
+        new THREE.MeshStandardMaterial({color:0x0030aa}));
+      slot.position.set(0, 0.4 - i*0.2, 0.33);
+      this.group.add(slot);
+    }
+    // Pins
+    for (let i = 0; i < 4; i++) {
+      const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.6,6), MAT.gold());
+      pin.position.set(-0.3+i*0.2, -1.0, 0);
+      this.group.add(pin);
+    }
+  }
+  
+  buildPins() {
+    this.addPin('VCC', 'power', new THREE.Vector3(-0.3, -1.3, 0), 'power');
+    this.addPin('DATA', 'digital', new THREE.Vector3(-0.1, -1.3, 0), 'output');
+    this.addPin('NC', 'digital', new THREE.Vector3(0.1, -1.3, 0));
+    this.addPin('GND', 'ground', new THREE.Vector3(0.3, -1.3, 0), 'ground');
+  }
+  
+  // Called by DHT library simulation
+  readTemperature() { return this.temperature + (Math.random()-0.5)*0.5; }
+  readHumidity() { return this.humidity + (Math.random()-0.5)*1.0; }
+  
+  onPinChange(pin, val) {}
+  updateGlow() {}
+  getProperties() { return { type:'DHT11', name:this.name, temperature:this.temperature.toFixed(1)+'°C', humidity:this.humidity.toFixed(1)+'%' }; }
+}
+
+// ── HC-SR04 ULTRASONIC ────────────────────────────────────────────────────
+class Ultrasonic extends ComponentInstance {
+  constructor(name, pos) {
+    super('ultrasonic', name, pos);
+    this.distance = 50; // cm
+    this.buildMesh();
+    this.buildPins();
+  }
+  
+  buildMesh() {
+    const board = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.2, 2.0), MAT.pcbBlue());
+    this.group.add(board);
+    // Two transducers
+    for (const x of [-1.2, 1.2]) {
+      const outer = new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.55,0.85,16), MAT.metal());
+      outer.position.set(x, 0.52, 0);
+      this.group.add(outer);
+      const inner = new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.42,0.75,16),
+        new THREE.MeshStandardMaterial({color:0x303030}));
+      inner.position.set(x, 0.52, 0);
+      this.group.add(inner);
+    }
+    // Label chip
+    const chip = new THREE.Mesh(new THREE.BoxGeometry(1.0,0.3,0.8), MAT.chip());
+    chip.position.set(0, 0.25, 0);
+    this.group.add(chip);
+  }
+  
+  buildPins() {
+    const px = [[-1.8,0,1.2],[-0.9,0,1.2],[0.0,0,1.2],[0.9,0,1.2]];
+    const pnames = ['VCC','TRIG','ECHO','GND'];
+    const ptypes = ['power','digital','digital','ground'];
+    const pdirs  = ['power','input','output','ground'];
+    for (let i=0;i<4;i++) this.addPin(pnames[i], ptypes[i], new THREE.Vector3(...px[i]), pdirs[i]);
+  }
+  
+  // Returns distance in cm (called by simulation)
+  measureDistance() { return this.distance + (Math.random()-0.5)*2; }
+  onPinChange(pin, val) {}
+  updateGlow() {}
+  getProperties() { return { type:'HC-SR04', name:this.name, distance:this.distance.toFixed(1)+'cm', range:'2-400cm' }; }
+}
+
+// ── BREADBOARD ────────────────────────────────────────────────────────────
+class Breadboard extends ComponentInstance {
+  constructor(name, pos) {
+    super('breadboard', name, pos);
+    this.buildMesh();
+    this.buildPins();
+  }
+  
+  buildMesh() {
+    // Main board
+    const board = new THREE.Mesh(new THREE.BoxGeometry(16.5, 0.5, 5.4),
+      new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.9}));
+    this.group.add(board);
+    // Power rails (red + blue)
+    const redRail = new THREE.Mesh(new THREE.BoxGeometry(15.5,0.05,0.4),
+      new THREE.MeshBasicMaterial({color:0xff2020}));
+    redRail.position.set(0, 0.28, 2.3); this.group.add(redRail);
+    const bluRail = new THREE.Mesh(new THREE.BoxGeometry(15.5,0.05,0.4),
+      new THREE.MeshBasicMaterial({color:0x2020ff}));
+    bluRail.position.set(0, 0.28, -2.3); this.group.add(bluRail);
+    // Center divider
+    const div = new THREE.Mesh(new THREE.BoxGeometry(15.5,0.1,0.15),
+      new THREE.MeshStandardMaterial({color:0xdddddd}));
+    div.position.y = 0.28; this.group.add(div);
+    // Grid of holes (simplified visual)
+    for (let r = 0; r < 2; r++) {
+      for (let c = 0; c < 30; c++) {
+        const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.1,6),
+          new THREE.MeshBasicMaterial({color:0x888888}));
+        hole.position.set(-7.0 + c*0.5, 0.28, (r-0.5)*1.0);
+        this.group.add(hole);
+      }
+    }
+  }
+  
+  buildPins() {
+    // Power rails
+    this.addPin('+V', 'power', new THREE.Vector3(-7.5, 0.6, 2.3), 'power');
+    this.addPin('-V', 'ground', new THREE.Vector3(-7.5, 0.6, -2.3), 'ground');
+    // Row pins (a1, b1, etc.) - just add a subset
+    for (let col = 1; col <= 10; col++) {
+      const x = -7.0 + (col-1)*0.5;
+      this.addPin(`a${col}`, 'digital', new THREE.Vector3(x, 0.6, -0.5));
+      this.addPin(`b${col}`, 'digital', new THREE.Vector3(x, 0.6, 0.5));
+    }
+  }
+  
+  onPinChange(pin, val) {
+    // Row connections: a1-e1 connected, f1-j1 connected
+    const match = pin.match(/^([a-e]|[f-j])(\d+)$/);
+    if (match) {
+      const row = match[1]; const col = match[2];
+      const group = 'abcde'.includes(row) ? 'abcde' : 'fghij';
+      for (const ch of group) {
+        const other = this.pins[ch+col];
+        if (other && ch !== row) other.setValue(val);
+      }
+    }
+  }
+  
+  updateGlow() {}
+  getProperties() { return { type:'Breadboard', name:this.name, points:'830', rows:'63' }; }
+}
+
+// ── L298N MOTOR DRIVER ────────────────────────────────────────────────────
+class L298N extends ComponentInstance {
+  constructor(name, pos) {
+    super('l298n', name, pos);
+    this.buildMesh();
+    this.buildPins();
+    this.state = { ena:0, in1:0, in2:0, enb:0, in3:0, in4:0 };
+  }
+  
+  buildMesh() {
+    const board = new THREE.Mesh(new THREE.BoxGeometry(4.3, 0.3, 4.3), MAT.pcbBlue());
+    this.group.add(board);
+    // Main IC
+    const ic = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.7, 2.0), MAT.chip());
+    ic.position.y = 0.5; this.group.add(ic);
+    // Heat sink
+    const hs = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.0, 0.4),
+      new THREE.MeshStandardMaterial({color:0x444444, metalness:0.8}));
+    hs.position.set(0, 0.65, 1.4); this.group.add(hs);
+    for (let i=-4; i<=4; i++) {
+      const fin = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.0, 0.4),
+        new THREE.MeshStandardMaterial({color:0x555555, metalness:0.8}));
+      fin.position.set(i*0.25, 0.65, 1.4); this.group.add(fin);
+    }
+    // Screw terminals
+    for (let i = 0; i < 4; i++) {
+      const term = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.5, 0.5), MAT.plastic(0x111111));
+      term.position.set(-1.5+i*1.0, 0.4, -2.4); this.group.add(term);
+    }
+  }
+  
+  buildPins() {
+    this.addPin('ENA','digital',new THREE.Vector3(-2.4,0.3,1.5),'input');
+    this.addPin('IN1','digital',new THREE.Vector3(-2.4,0.3,1.0),'input');
+    this.addPin('IN2','digital',new THREE.Vector3(-2.4,0.3,0.5),'input');
+    this.addPin('IN3','digital',new THREE.Vector3(-2.4,0.3,-0.5),'input');
+    this.addPin('IN4','digital',new THREE.Vector3(-2.4,0.3,-1.0),'input');
+    this.addPin('ENB','digital',new THREE.Vector3(-2.4,0.3,-1.5),'input');
+    this.addPin('VCC','power',new THREE.Vector3(2.4,0.3,1.5),'power');
+    this.addPin('GND','ground',new THREE.Vector3(2.4,0.3,1.0),'ground');
+    this.addPin('5V','power',new THREE.Vector3(2.4,0.3,0.5),'power');
+    this.addPin('OUT1','digital',new THREE.Vector3(0,0.3,-2.6),'output');
+    this.addPin('OUT2','digital',new THREE.Vector3(0.6,0.3,-2.6),'output');
+    this.addPin('OUT3','digital',new THREE.Vector3(-0.6,0.3,-2.6),'output');
+    this.addPin('OUT4','digital',new THREE.Vector3(-1.2,0.3,-2.6),'output');
+  }
+  
+  onPinChange(pin, val) {
+    this.state[pin.toLowerCase()] = val;
+    // Drive motor A
+    if (this.state.in1 > 0.5 && this.state.in2 < 0.5) {
+      this.pins['OUT1'].setValue(this.state.ena);
+      this.pins['OUT2'].setValue(0);
+    } else if (this.state.in2 > 0.5 && this.state.in1 < 0.5) {
+      this.pins['OUT1'].setValue(0);
+      this.pins['OUT2'].setValue(this.state.ena);
+    }
+  }
+  
+  updateGlow() {}
+  getProperties() { return { type:'L298N Motor Driver', name:this.name, voltage:'5-35V', current:'2A/ch' }; }
+}
+
+// ── COMPONENT LIBRARY DEFINITION ─────────────────────────────────────────
+const COMPONENT_LIBRARY = [
+  { type:'arduino_uno', label:'Arduino Uno', sub:'ATmega328P • 16MHz', icon:'🔵', Cls:ArduinoUno },
+  { type:'esp32',       label:'ESP32',        sub:'WiFi+BT • 240MHz',  icon:'📡', Cls:ESP32 },
+  { type:'led',         label:'LED',           sub:'Digital/PWM Output', icon:'💡', Cls:LEDComponent },
+  { type:'resistor',    label:'Resistor',      sub:'220Ω / 1kΩ / 10kΩ', icon:'〰', Cls:Resistor },
+  { type:'lcd',         label:'LCD 16×2',      sub:'I2C Display',        icon:'🖥', Cls:LCD16x2 },
+  { type:'servo',       label:'Servo Motor',   sub:'PWM Servo SG90',    icon:'⚙', Cls:ServoMotor },
+  { type:'button',      label:'Push Button',   sub:'Digital Input',      icon:'🔘', Cls:PushButton },
+  { type:'potentiometer',label:'Potentiometer',sub:'Analog Input',       icon:'🎛', Cls:Potentiometer },
+  { type:'dht11',       label:'DHT11',         sub:'Temp + Humidity',    icon:'🌡', Cls:DHT11 },
+  { type:'ultrasonic',  label:'HC-SR04',       sub:'Ultrasonic Sensor',  icon:'📻', Cls:Ultrasonic },
+  { type:'breadboard',  label:'Breadboard',    sub:'830 Points',         icon:'⬜', Cls:Breadboard },
+  { type:'l298n',       label:'L298N',         sub:'Dual Motor Driver',  icon:'⚡', Cls:L298N },
+];
+
+// Build component list UI
+const compListEl = document.getElementById('comp-list');
+for (const def of COMPONENT_LIBRARY) {
+  const el = document.createElement('div');
+  el.className = 'comp-item';
+  el.innerHTML = `<div class="comp-icon">${def.icon}</div><div class="comp-info"><div class="comp-name">${def.label}</div><div class="comp-sub">${def.sub}</div></div>`;
+  el.addEventListener('click', () => addComponentFromLibrary(def));
+  compListEl.appendChild(el);
+}
+
+// ── DEFAULT CODE SNIPPETS ─────────────────────────────────────────────────
+const DEFAULT_BLINK_CODE = `// Arduino Blink - built-in LED
+void setup() {
+  Serial.begin(9600);
+  pinMode(LED_BUILTIN, OUTPUT);
+  Serial.println("Arduino Ready!");
+}
+
+void loop() {
+  digitalWrite(LED_BUILTIN, HIGH);
+  Serial.println("LED ON");
+  delay(500);
+  digitalWrite(LED_BUILTIN, LOW);
+  Serial.println("LED OFF");
+  delay(500);
+}`;
+
+const DEFAULT_ESP32_CODE = `// ESP32 - Basic GPIO
+void setup() {
+  Serial.begin(115200);
+  Serial.println("ESP32 Ready - JARVIS Online");
+}
+
+void loop() {
+  Serial.println("Heartbeat...");
+  delay(1000);
+}`;
+
+// ── ARDUINO SIMULATOR ─────────────────────────────────────────────────────
+class ArduinoSimulator {
+  constructor(board) {
+    this.board = board;
+    this.running = false;
+    this.startTime = 0;
+    this.loopGen = null;
+    this.pendingDelay = 0;
+    this.delayEndTime = 0;
+    this.serialCallback = null;
+    this.serialLines = [];
+    this.pinModes = {};
+    this.pinValues = {};
+    this.i2cDevices = {}; // addr → component
+    this._wireAddr = 0;
+    this._wireBuffer = [];
+    
+    // I2C LCD instance ref
+    this._lcdRef = null;
+    this._dhtRef = null;
+    this._ultraRef = null;
+  }
+  
+  findConnectedComponent(pinName, types) {
+    const pin = this.board.pins[pinName];
+    if (!pin) return null;
+    for (const connPin of pin.connections) {
+      if (types.includes(connPin.parent.type)) return connPin.parent;
+    }
+    return null;
+  }
+  
+  // Called before each upload to scan connected components
+  scanComponents() {
+    // Find LCD
+    const sdaPin = this.board.pins['D18'] || this.board.pins['A4'];
+    if (sdaPin) {
+      for (const conn of (sdaPin.connections || [])) {
+        if (conn.parent.type === 'lcd') { this._lcdRef = conn.parent; break; }
+      }
+    }
+    // Also check all pins for LCD/DHT/Ultra
+    for (const [pname, pin] of Object.entries(this.board.pins)) {
+      for (const conn of pin.connections) {
+        if (conn.parent.type === 'lcd') this._lcdRef = conn.parent;
+        if (conn.parent.type === 'dht11') this._dhtRef = conn.parent;
+        if (conn.parent.type === 'ultrasonic') this._ultraRef = conn.parent;
+      }
+    }
+  }
+  
+  transpile(code) {
+    let js = code;
+    
+    // Remove #include lines
+    js = js.replace(/#include\s+[<"][^>"]*[>"]/gm, '');
+    
+    // #define to const
+    js = js.replace(/#define\s+(\w+)\s+(.*)/gm, (m, name, val) => {
+      val = val.trim();
+      const num = Number(val);
+      return isNaN(num) ? `const ${name} = ${JSON.stringify(val)};` : `const ${name} = ${num};`;
+    });
+    
+    // Type casting — remove cast expressions like (int), (float) etc.
+    js = js.replace(/\(\s*(int|float|double|long|byte|unsigned\s+int|uint8_t|uint16_t)\s*\)\s*/g, '');
+    
+    // Variable declarations — multi-word types first (order matters!)
+    js = js.replace(/\b(unsigned\s+long|unsigned\s+int|unsigned\s+char|unsigned\s+long\s+int)\s+(?=\w)/g, 'var ');
+    // Single-word primitive types
+    js = js.replace(/(?<!var\s)\b(int|long|float|double|char|byte|boolean|bool|uint8_t|uint16_t|uint32_t|int8_t|int16_t|int32_t)\s+(?=\w)/g, 'var ');
+    // String type → var (only as declaration before identifier, not function call)
+    js = js.replace(/\bString\s+(?=[a-zA-Z_])/g, 'var ');
+    
+    // Custom/library object declarations — handles BOTH UpperCase and camelCase library types
+    // e.g. "Scheduler userScheduler;" or "painlessMesh mesh;" or "Adafruit_SSD1306 display(w,h,&Wire,rst);"
+    const _libAliasMap = {
+      painlessMesh:'_painlessMesh', Scheduler:'_Scheduler', Task:'_Task',
+      Adafruit_SSD1306:'_Adafruit_SSD1306', Adafruit_GFX:'_Adafruit_GFX',
+      Adafruit_ST7735:'_Adafruit_ST7735', Adafruit_NeoPixel:'_Adafruit_NeoPixel',
+      U8G2_SSD1306_128X64_NONAME_F_HW_I2C:'_U8G2_SSD1306_128X64_NONAME_F_HW_I2C',
+      U8G2_SSD1306_128X64_NONAME_1_HW_I2C:'_U8G2_SSD1306_128X64_NONAME_F_HW_I2C',
+      LiquidCrystal_I2C:'_LCD', DHT:'_DHT', NewPing:'_NewPing', Servo:'_Servo',
+      IRrecv:'_IRrecv', IRsend:'_IRsend', SoftwareSerial:'_SoftwareSerial',
+      TinyGPSPlus:'_TinyGPSPlus', MFRC522:'_MFRC522', AccelStepper:'_AccelStepper',
+      Stepper:'_AccelStepper', StaticJsonDocument:'_StaticJsonDocument',
+      DynamicJsonDocument:'_DynamicJsonDocument', RTC_DS3231:'_RTC_DS3231',
+      RTC_DS1307:'_RTC_DS3231', DateTime:'_DateTime',
+    };
+    const _skipWords = new Set(['var','let','const','function','return','if','else','for','while','do','switch','case','break','continue','new','true','false','null','undefined','typeof','instanceof','in','of','void','delete','throw','try','catch','finally','class','extends','import','export','default','yield','async','await','static','get','set','super']);
+    const _primitives = new Set(['int','long','float','double','char','byte','bool','boolean','uint8_t','uint16_t','uint32_t','int8_t','int16_t','int32_t','unsigned','signed','void','auto']);
+
+    // Bare declaration: TypeName varName;  → var varName = new _Type();
+    js = js.replace(/\b([A-Za-z_][A-Za-z0-9_]*(?:<[^>]*>)?)\s+([a-z_][a-zA-Z0-9_]*)\s*;/g, (m, type, varname) => {
+      if (_skipWords.has(type) || _primitives.has(type)) return m;
+      const cls = _libAliasMap[type];
+      if (cls) return `var ${varname} = new ${cls}();`;
+      // Unknown type — create a safe proxy object so method calls don't throw
+      return `var ${varname} = (typeof ${type} === 'function') ? new ${type}() : (typeof _${type} === 'function' ? new _${type}() : {setDebugMsgTypes:function(){},init:function(){},update:function(){},begin:function(){return true;},read:function(){return 0;},write:function(){},print:function(v){},println:function(v){}});`;
+    });
+
+    // Constructor call: TypeName varName(args);  → var varName = new _Type(cleanArgs);
+    js = js.replace(/\b([A-Za-z_][A-Za-z0-9_]*)\s+([a-z_][a-zA-Z0-9_]*)\s*\(([^;{]*)\)\s*;/g, (m, type, varname, args) => {
+      if (_skipWords.has(type) || _primitives.has(type)) return m;
+      const cls = _libAliasMap[type] || `(typeof _${type} === 'function' ? _${type} : typeof ${type} === 'function' ? ${type} : Object)`;
+      const cleanArgs = args.replace(/&/g,'').trim();
+      return `var ${varname} = new ${cls}(${cleanArgs});`;
+    });
+    
+    // Task macro shorthand: TASK_SECOND etc already handled as #define
+    // Remove callback pointer syntax: &functionName → functionName
+    js = js.replace(/&([a-zA-Z_]\w*)/g, '$1');
+    
+    // Clean up any accidental double-var
+    js = js.replace(/\bvar\s+var\s+/g, 'var ');
+    
+    // void functions → regular functions
+    js = js.replace(/\bvoid\s+(\w+)\s*\(/g, 'function $1(');
+    
+    // Make setup/loop generators
+    js = js.replace(/function setup\s*\(\s*\)/, 'function* setup()');
+    js = js.replace(/function loop\s*\(\s*\)/, 'function* loop()');
+    
+    // delay/delayMicroseconds → yield
+    js = js.replace(/\bdelay\s*\(([^)]+)\)/g, 'yield ($1)');
+    js = js.replace(/\bdelayMicroseconds\s*\(([^)]+)\)/g, 'yield (Math.ceil(($1)/1000))');
+    
+    // Array declarations: var name[N] → var name = new Array(N).fill(0)
+    js = js.replace(/var\s+(\w+)\s*\[(\d+)\]/g, 'var $1 = new Array($2).fill(0)');
+    
+    return js;
+  }
+  
+  buildSandbox() {
+    const sim = this;
+    
+    // Servo class
+    class _Servo {
+      constructor() { this._pin=-1; this._angle=90; this._comp=null; }
+      attach(pin) {
+        this._pin = pin;
+        // Find servo component connected to this pin
+        const pname = sim._pinName(pin);
+        const comp = sim.findConnectedComponent(pname, ['servo']);
+        if (comp) this._comp = comp;
+      }
+      write(angle) {
+        this._angle = Math.max(0, Math.min(180, angle));
+        if (this._comp) this._comp.targetAngle = this._angle;
+        sim.analogWrite(this._pin, Math.round(sim._map(this._angle,0,180,0,255)));
+      }
+      read() { return this._angle; }
+      writeMicroseconds(us) { this.write(sim._map(us, 544, 2400, 0, 180)); }
+    }
+    
+    // LiquidCrystal_I2C class
+    class _LCD {
+      constructor(addr, cols, rows) { 
+        this._addr=addr; this._cols=cols; this._rows=rows; 
+        this._comp = sim._lcdRef;
+      }
+      begin(cols, rows) { this._comp = sim._lcdRef; }
+      init() { this._comp = sim._lcdRef; }
+      backlight() {}
+      noBacklight() {}
+      clear() { if(this._comp) this._comp.clear(); }
+      setCursor(col, row) { if(this._comp) this._comp.setCursor(col, row); }
+      print(v) { if(this._comp) this._comp.print(v); sim.Serial.print(v); }
+      println(v) { if(this._comp) this._comp.print(String(v)+'\n'); sim.Serial.println(v); }
+      home() { if(this._comp) this._comp.setCursor(0,0); }
+      createChar() {}
+    }
+    
+    // DHT library class
+    class _DHT {
+      constructor(pin, type) { this._pin=pin; this._comp = sim._dhtRef; }
+      begin() {}
+      readTemperature(fahrenheit) {
+        if (!this._comp) return 25.0;
+        const t = this._comp.readTemperature();
+        return fahrenheit ? t*9/5+32 : t;
+      }
+      readHumidity() { return this._comp ? this._comp.readHumidity() : 60.0; }
+      isnan(v) { return isNaN(v); }
+    }
+    
+    // NewPing (ultrasonic)
+    class _NewPing {
+      constructor(trigPin, echoPin, maxDist) {
+        this._trigger=trigPin; this._echo=echoPin; this._max=maxDist||200;
+        this._comp = sim._ultraRef;
+      }
+      ping_cm() { return this._comp ? this._comp.measureDistance() : 0; }
+      ping_in() { return this.ping_cm() / 2.54; }
+    }
+    
+    // Wire (I2C)
+    const Wire = {
+      begin: (addr)=>{},
+      beginTransmission: (addr)=>{ sim._wireAddr=addr; sim._wireBuffer=[]; },
+      write: (v)=>{ sim._wireBuffer.push(v); },
+      endTransmission: ()=>{
+        const lcd = sim._lcdRef;
+        if (lcd && sim._wireBuffer.length > 0) {
+          // Basic HD44780-over-I2C decoding
+          for (const b of sim._wireBuffer) {
+            if (b >= 0x20 && b < 0x7f) lcd.print(String.fromCharCode(b));
+          }
+        }
+        sim._wireBuffer=[];
+        return 0;
+      },
+      requestFrom:(a,c)=>0,
+      read:()=>0,
+      available:()=>0
+    };
+    
+    const self = sim;
+    return {
+      _Servo, _LCD, _DHT, _NewPing, Wire,
+      Serial: sim.Serial,
+      HIGH:1, LOW:0, INPUT:0, OUTPUT:1, INPUT_PULLUP:2, INPUT_PULLDOWN:2,
+      A0:14, A1:15, A2:16, A3:17, A4:18, A5:19,
+      LED_BUILTIN:13, PI:Math.PI, TWO_PI:Math.PI*2, HALF_PI:Math.PI/2,
+      
+      pinMode: (p,m) => sim.pinMode(p,m),
+      digitalWrite: (p,v) => sim.digitalWrite(p,v),
+      digitalRead: (p) => sim.digitalRead(p),
+      analogWrite: (p,v) => sim.analogWrite(p,v),
+      analogRead: (p) => sim.analogRead(p),
+      millis: () => sim.millis(),
+      micros: () => sim.millis()*1000,
+      
+      // pulseIn — simulates measuring echo pulse from ultrasonic sensor
+      pulseIn: (pin, value, timeout) => {
+        const pname = sim._pinName(pin);
+        // Check if anything connected to this pin
+        const boardPin = sim.board.pins[pname];
+        if (boardPin) {
+          for (const conn of boardPin.connections) {
+            if (conn.parent.type === 'ultrasonic') {
+              const dist = conn.parent.measureDistance();
+              return Math.round(dist * 58.2); // cm → microseconds round-trip
+            }
+          }
+        }
+        // fallback: scan for any ultrasonic in scene
+        if (sim._ultraRef) return Math.round(sim._ultraRef.measureDistance() * 58.2);
+        return 500; // default 500µs → ~8.6cm
+      },
+      
+      // Tone / PWM audio (no-op in simulation)
+      tone: (pin, freq, dur) => {},
+      noTone: (pin) => {},
+      
+      // Interrupts
+      attachInterrupt: (pin, fn, mode) => {},
+      detachInterrupt: (pin) => {},
+      interrupts: ()=>{}, noInterrupts: ()=>{},
+      digitalPinToInterrupt: (p) => p,
+      
+      // Math
+      map: (x,a,b,c,d) => sim._map(x,a,b,c,d),
+      constrain: (x,a,b) => Math.min(Math.max(x,a),b),
+      abs: Math.abs, min: Math.min, max: Math.max,
+      sqrt: Math.sqrt, pow: Math.pow, sq: (x)=>x*x,
+      sin: Math.sin, cos: Math.cos, tan: Math.tan,
+      asin: Math.asin, acos: Math.acos, atan: Math.atan, atan2: Math.atan2,
+      radians: (d)=>d*Math.PI/180, degrees: (r)=>r*180/Math.PI,
+      floor: Math.floor, ceil: Math.ceil, round: Math.round,
+      log: Math.log, exp: Math.exp,
+      isnan: (v) => isNaN(v), isinf: (v) => !isFinite(v),
+      random: (a,b) => b===undefined ? Math.floor(Math.random()*a) : Math.floor(Math.random()*(b-a))+a,
+      randomSeed: ()=>{},
+      
+      // Type conversion
+      String: (v) => String(v),
+      int: (v) => Math.trunc(v),
+      float: (v) => parseFloat(v),
+      byte: (v) => (v|0) & 0xFF,
+      char: (v) => String.fromCharCode(v),
+      
+      // Bit ops
+      bitRead: (v,b) => (v>>b)&1,
+      bitWrite: (v,b,x) => x ? (v|(1<<b)) : (v&~(1<<b)),
+      bitSet: (v,b) => v|(1<<b),
+      bitClear: (v,b) => v&~(1<<b),
+      bit: (b) => 1<<b,
+      lowByte: (v) => v&0xFF,
+      highByte: (v) => (v>>8)&0xFF,
+      
+      // ── Adafruit SSD1306 / GFX (OLED) ──
+      SSD1306_SWITCHCAPVCC: 1, SSD1306_EXTERNALVCC: 2,
+      BLACK: 0, WHITE: 1, INVERSE: 2,
+      _Adafruit_SSD1306: class {
+        constructor(w,h,wire,rst) { this.w=w||128; this.h=h||64; this._comp=sim._lcdRef; }
+        begin(vcc, addr) { sim._serial('[OLED] init '+this.w+'x'+this.h+'\n'); return true; }
+        clearDisplay() { if(this._comp) this._comp.clear(); }
+        display() {}
+        setTextSize(s) {} setTextColor(c) {} setCursor(x,y) { if(this._comp) this._comp.setCursor(Math.floor(x/6),Math.floor(y/8)); }
+        print(v) { if(this._comp) this._comp.print(v); sim._serial(String(v)); }
+        println(v) { if(this._comp) this._comp.print(String(v)+'\n'); sim._serial(String(v)+'\n'); }
+        drawRect(x,y,w,h,c) {} fillRect(x,y,w,h,c) {} drawLine(x0,y0,x1,y1,c) {}
+        drawCircle(x,y,r,c) {} fillCircle(x,y,r,c) {}
+        drawBitmap(x,y,bmp,w,h,c) {} drawPixel(x,y,c) {}
+        setRotation(r) {} invertDisplay(i) {} dim(d) {}
+        width() { return this.w; } height() { return this.h; }
+        fillScreen(c) {}
+        getTextBounds(s,x,y,px,py,pw,ph) {}
+      },
+      _Adafruit_GFX: class {
+        constructor(w,h) { this.w=w; this.h=h; }
+        fillScreen(c) {} setTextColor(c) {} setTextSize(s) {}
+        setCursor(x,y) {} print(v) { sim._serial(String(v)); } println(v) { sim._serial(String(v)+'\n'); }
+      },
+
+      // ── U8g2 / U8x8 (OLED alternative) ──
+      _U8G2_SSD1306_128X64_NONAME_F_HW_I2C: class {
+        constructor(rot,rst) {} begin() { return true; }
+        clearBuffer() {} sendBuffer() {} clearDisplay() {}
+        setFont(f) {} setFontMode(m) {} setDrawColor(c) {}
+        drawStr(x,y,s) { sim._serial(s+'\n'); }
+        drawUTF8(x,y,s) { sim._serial(s+'\n'); }
+        setCursor(x,y) {} print(v) { sim._serial(String(v)); } println(v) { sim._serial(String(v)+'\n'); }
+        firstPage() { return true; } nextPage() { return false; }
+        getDisplayWidth() { return 128; } getDisplayHeight() { return 64; }
+      },
+      U8G2_R0: 0, U8G2_R1: 1, U8G2_R2: 2, U8G2_R3: 3,
+      u8g2_font_ncenB08_tr: 'ncenB08', u8g2_font_6x10_tf: '6x10',
+      u8g2_font_5x7_tf: '5x7', u8g2_font_courB08_tf: 'courB08',
+
+      // ── Adafruit_ST7735 / TFT ──
+      _Adafruit_ST7735: class {
+        constructor(cs,dc,rst) {}
+        initR(tab) {} initB() {} initG() {}
+        fillScreen(c) {} fillRect(x,y,w,h,c) {} drawRect(x,y,w,h,c) {}
+        setTextColor(c,bg) {} setTextSize(s) {} setCursor(x,y) {}
+        print(v) { sim._serial(String(v)); } println(v) { sim._serial(String(v)+'\n'); }
+        drawFastHLine(x,y,w,c) {} drawFastVLine(x,y,h,c) {}
+        drawPixel(x,y,c) {} drawCircle(x,y,r,c) {} fillCircle(x,y,r,c) {}
+        width() { return 128; } height() { return 160; }
+      },
+      ST7735_RED:0xF800, ST7735_GREEN:0x07E0, ST7735_BLUE:0x001F,
+      ST7735_WHITE:0xFFFF, ST7735_BLACK:0x0000, ST7735_YELLOW:0xFFE0,
+      ST7735_CYAN:0x07FF, ST7735_MAGENTA:0xF81F, ST7735_ORANGE:0xFC00,
+      INITR_BLACKTAB:0, INITR_GREENTAB:1, INITR_REDTAB:2,
+
+      // ── NeoPixel / FastLED ──
+      _Adafruit_NeoPixel: class {
+        constructor(n,pin,type) { this.n=n; this._pixels=new Array(n).fill(0); }
+        begin() {} show() {} setBrightness(b) {}
+        setPixelColor(i,r,g,b) { this._pixels[i]=(r<<16)|(g<<8)|b; }
+        Color(r,g,b) { return (r<<16)|(g<<8)|b; }
+        clear() { this._pixels.fill(0); }
+        getPixelColor(i) { return this._pixels[i]; }
+      },
+      NEO_GRB:6, NEO_RGB:0, NEO_KHZ800:0x0200,
+
+      // ── IRremote ──
+      _IRrecv: class { constructor(pin){} enableIRIn(){} decode(res){return false;} resume(){} },
+      _IRsend: class { constructor(){} sendNEC(d,b){} sendSony(d,b){} sendRC5(d,b){} },
+      _decode_results: class { constructor(){ this.value=0; this.decode_type=0; } },
+      DECODED:1, NEC:1, SONY:2, RC5:3,
+
+      // ── SoftwareSerial ──
+      _SoftwareSerial: class {
+        constructor(rx,tx) {}
+        begin(baud) {}
+        available() { return 0; } read() { return -1; }
+        print(v) { sim._serial(String(v)); } println(v) { sim._serial(String(v)+'\n'); }
+        write(v) {}
+      },
+
+      // ── GPS / TinyGPS++ ──
+      _TinyGPSPlus: class {
+        constructor() { this.location={ lat:{value:()=>23.8}, lng:{value:()=>90.4}, isUpdated:()=>true }; this.speed={kmph:()=>0}; this.satellites={value:()=>8}; }
+        encode(c) { return false; }
+      },
+
+      // ── RFID / MFRC522 ──
+      _MFRC522: class {
+        constructor(ssPin, rstPin) { this.uid = { size:4, uidByte: new Uint8Array([0xDE,0xAD,0xBE,0xEF]) }; }
+        PCD_Init() {} PICC_IsNewCardPresent() { return false; }
+        PICC_ReadCardSerial() { return true; }
+        PICC_HaltA() {} PCD_StopCrypto1() {}
+      },
+      MFRC522: { uid:{ size:4, uidByte:new Uint8Array([0xDE,0xAD,0xBE,0xEF]) } },
+
+      // ── SD card ──
+      SD: {
+        begin:(csPin)=>true, open:(f,m)=>({ available:()=>0, read:()=>-1, println:(v)=>{}, print:(v)=>{}, close:()=>{}, write:(v)=>{} }),
+        exists:(f)=>false, remove:(f)=>true, mkdir:(f)=>true,
+      },
+      FILE_WRITE:1, FILE_READ:0,
+
+      // ── RTC (DS3231/DS1307) ──
+      _RTC_DS3231: class {
+        constructor() {}
+        begin() { return true; }
+        now() { const d=new Date(); return { year:()=>d.getFullYear(), month:()=>d.getMonth()+1, day:()=>d.getDate(), hour:()=>d.getHours(), minute:()=>d.getMinutes(), second:()=>d.getSeconds(), unixtime:()=>Math.floor(Date.now()/1000) }; }
+        adjust(dt) {} lostPower() { return false; }
+      },
+      _DateTime: class { constructor(y,mo,d,h,mi,s){ this._d=new Date(y,mo-1,d,h||0,mi||0,s||0); } year(){return this._d.getFullYear();} month(){return this._d.getMonth()+1;} day(){return this._d.getDate();} hour(){return this._d.getHours();} minute(){return this._d.getMinutes();} second(){return this._d.getSeconds();} },
+
+      // ── Stepper / AccelStepper ──
+      _AccelStepper: class {
+        constructor(mode,p1,p2,p3,p4){ this._pos=0; this._target=0; this._speed=100; this._maxSpeed=200; this._accel=100; }
+        setMaxSpeed(s){ this._maxSpeed=s; } setAcceleration(a){ this._accel=a; } setSpeed(s){ this._speed=s; }
+        moveTo(p){ this._target=p; } move(r){ this._target=this._pos+r; }
+        run(){ if(this._pos!==this._target){ this._pos+=Math.sign(this._target-this._pos); return true; } return false; }
+        runSpeed(){ return false; } runToPosition(){ this._pos=this._target; }
+        currentPosition(){ return this._pos; } distanceToGo(){ return this._target-this._pos; }
+        stop(){ this._target=this._pos; }
+      },
+      FULL2WIRE:1, FULL4WIRE:4, HALF4WIRE:8,
+
+      // ── Common constants missing from std libs ──
+      LSBFIRST:0, MSBFIRST:1,
+      CHANGE:1, FALLING:2, RISING:3,
+      DEFAULT:1, EXTERNAL:0, INTERNAL:3,
+      A6:20, A7:21, // extra Arduino analog pins
+
+      // ── painlessMesh / ESP-NOW mesh networking ──
+      _painlessMesh: class {
+        constructor() { this._cbs={}; this._nodeId = Math.floor(Math.random()*0xFFFFFF); }
+        init(ssid, pass, scheduler, port) { sim._serial('[mesh] init SSID='+ssid+' port='+port+'\n'); }
+        setDebugMsgTypes(...a) {}
+        onReceive(fn) { this._cbs.receive=fn; }
+        onNewConnection(fn) { this._cbs.newConn=fn; }
+        onChangedConnections(fn) { this._cbs.changedConn=fn; }
+        onNodeTimeAdjusted(fn) { this._cbs.timeAdj=fn; }
+        sendBroadcast(msg) { sim._serial('[mesh] broadcast: '+msg+'\n'); }
+        sendSingle(id, msg) { sim._serial('[mesh] → '+id+': '+msg+'\n'); }
+        getNodeId() { return this._nodeId; }
+        getNodeList() { return [this._nodeId]; }
+        update() {}
+        calc_delay(a,b) { return 0; }
+        adoptionDelay() {}
+        subConnections() { return '[]'; }
+        nodeTime() { return Date.now(); }
+      },
+
+      // ── Task Scheduler (TaskScheduler lib) ──
+      _Scheduler: class {
+        constructor() { this._tasks=[]; }
+        addTask(t) { if(t) this._tasks.push(t); }
+        deleteTask(t) { this._tasks=this._tasks.filter(x=>x!==t); }
+        execute() { for(const t of this._tasks) if(t&&t._enabled) t._tryRun(); }
+      },
+      _Task: class {
+        constructor(interval, iters, cb, sch, enabled) {
+          this._interval=interval||1000; this._iters=iters; this._cb=cb;
+          this._enabled=enabled||false; this._last=0;
+          if(sch) sch.addTask(this);
+        }
+        enable()  { this._enabled=true; }
+        disable() { this._enabled=false; }
+        restart() { this._enabled=true; this._last=Date.now(); }
+        isEnabled() { return this._enabled; }
+        setInterval(v) { this._interval=v; }
+        setIterations(v) { this._iters=v; }
+        setCallback(fn) { this._cb=fn; }
+        _tryRun() {
+          const now=Date.now();
+          if(now-this._last >= this._interval) { this._last=now; if(this._cb) this._cb(); }
+        }
+      },
+      TASK_SECOND: 1000, TASK_MINUTE: 60000,
+      TASK_FOREVER: -1, TASK_ONCE: 1,
+      TASK_MILLISECOND: 1,
+
+      // ── WiFi (ESP32) ──
+      WiFi: {
+        begin:(ssid,pass)=>{ sim._serial('[WiFi] connecting to '+ssid+'\n'); },
+        connected:()=>true, localIP:()=>'192.168.1.100',
+        macAddress:()=>'AA:BB:CC:DD:EE:FF',
+        mode:(m)=>{}, RSSI:()=>-65,
+        disconnect:()=>{}, status:()=>3, // WL_CONNECTED
+        softAP:(ssid,pass)=>true,
+        scanNetworks:()=>0,
+        hostname:()=>'esp32-jarvis',
+        setHostname:(h)=>{},
+      },
+      WIFI_MODE_AP:2, WIFI_MODE_STA:1, WIFI_MODE_APSTA:3,
+      WL_CONNECTED:3,
+
+      // ── BLE stub ──
+      BLEDevice: { init:(n)=>{}, createServer:()=>({ createService:(u)=>({ createCharacteristic:(u,p)=>({ setValue:(v)=>{}, notify:()=>{}, setCallbacks:(c)=>{} }), start:()=>{} }), getAdvertising:()=>({ start:()=>{} }), startAdvertising:()=>{} }) },
+      BLECharacteristic: { PROPERTY_READ:1, PROPERTY_WRITE:2, PROPERTY_NOTIFY:4 },
+
+      // ── SPI / I2S stubs ──
+      SPI: { begin:()=>{}, transfer:(v)=>0, end:()=>{}, setFrequency:(f)=>{} },
+      I2S: { begin:()=>{}, write:(v)=>{} },
+
+      // ── ArduinoJSON stub ──
+      _StaticJsonDocument: class { constructor(s){this._d={};} operator_index(k){return this._d[k];} containsKey(k){return k in this._d;} as(T){return JSON.stringify(this._d);} },
+      _DynamicJsonDocument: class { constructor(s){this._d={};} },
+      deserializeJson(doc, str) { try { doc._d = JSON.parse(str); } catch(e){} return {isNull:()=>false}; },
+      serializeJson(doc, str) { return JSON.stringify(doc._d||{}); },
+
+      // ── esp_now ──
+      esp_now_init:()=>0, esp_now_register_recv_cb:(cb)=>{},
+      esp_now_register_send_cb:(cb)=>{},
+      esp_now_add_peer:(peer)=>0,
+      esp_now_send:(mac,data,len)=>0,
+      ESP_NOW_MAX_DATA_LEN: 250,
+    };
+  }
+  
+  _pinName(pin) {
+    if (pin >= 14) return `A${pin-14}`;
+    return `D${pin}`;
+  }
+  
+  _map(x, a, b, c, d) { return (x - a) * (d - c) / (b - a) + c; }
+  
+  millis() { return this.running ? Date.now() - this.startTime : 0; }
+  pinMode(pin, mode) { this.pinModes[pin] = mode; }
+  digitalWrite(pin, value) {
+    const v = (value === 1 || value === true || value > 0) ? 1 : 0;
+    this.pinValues[pin] = v;
+    const pname = this._pinName(pin);
+    const boardPin = this.board.pins[pname];
+    if (boardPin) boardPin.setValue(v);
+  }
+  digitalRead(pin) {
+    const pname = this._pinName(pin);
+    const boardPin = this.board.pins[pname];
+    if (!boardPin) return 0;
+    return boardPin.value > 0.5 ? 1 : 0;
+  }
+  analogWrite(pin, value) {
+    const v = Math.max(0, Math.min(255, value)) / 255;
+    this.pinValues[pin] = v;
+    const pname = this._pinName(pin);
+    const boardPin = this.board.pins[pname];
+    if (boardPin) boardPin.setValue(v);
+  }
+  analogRead(pin) {
+    const pname = this._pinName(pin);
+    const boardPin = this.board.pins[pname];
+    if (!boardPin) return 0;
+    for (const conn of boardPin.connections) {
+      if (conn.parent.type === 'potentiometer') return Math.round(conn.parent.value * 1023);
+    }
+    return Math.round(boardPin.value * 1023);
+  }
+
+  // Arduino hardware API
+  get Serial() {
+    const sim = this;
+    return {
+      begin: (baud) => {},
+      print: (v) => sim._serial(String(v)),
+      println: (v) => { sim._serial(String(v)); sim._serial('\n'); },
+      available: () => 0, read: ()=>-1, write:(v)=>{},
+      flush: ()=>{}
+    };
+  }
+  
+  _serial(text) {
+    // Rate limit: max 300 serial lines total, then warn and stop
+    if (this._serialLineCount === undefined) this._serialLineCount = 0;
+    if (this._serialLineCount > 300) {
+      if (this._serialLineCount === 301) {
+        if (this.serialCallback) this.serialCallback('[Serial output limit reached — pausing]\n');
+      }
+      this._serialLineCount++;
+      return;
+    }
+    this._serialLineCount++;
+    if (this.serialCallback) this.serialCallback(text);
+    this.serialLines.push(text);
+  }
+
+  tick() {
+    if (!this.running || !this._loopFn) return;
+    
+    // Pending delay
+    if (this.delayEndTime > 0) {
+      if (Date.now() < this.delayEndTime) return;
+      this.delayEndTime = 0;
+    }
+    
+    if (!this.loopGen) this.loopGen = this._loopFn();
+    
+    // Run steps per tick
+    let steps = 50;
+    while (steps-- > 0) {
+      let r;
+      try { r = this.loopGen.next(); }
+      catch(e) {
+        // STOP completely — don't restart the loop or spam errors
+        serialLog('[' + this.board.name + '] Runtime error: ' + e.message, 'error');
+        serialLog('[' + this.board.name + '] Simulation halted. Fix code and re-upload.', 'error');
+        this.running = false;
+        this.loopGen = null;
+        updateStatusDot('error');
+        return;
+      }
+      
+      if (r.done) {
+        // Loop finished one iteration — restart it
+        this.loopGen = this._loopFn();
+        return;
+      }
+      
+      if (typeof r.value === 'number' && r.value > 0) {
+        this.delayEndTime = Date.now() + r.value;
+        return;
+      }
+    }
+  }
+
+  upload(code) {
+    this.stop();
+    this._serialLineCount = 0;
+    this.scanComponents();
+    const transpiled = this.transpile(code);
+    const sandbox = this.buildSandbox();
+    
+    try {
+      const keys = Object.keys(sandbox);
+      const vals = Object.values(sandbox);
+      
+      // Build function with sandbox
+      const fn = new Function(...keys, `
+        "use strict";
+        // Core library aliases — bare name → _prefixed class
+        var Servo                  = _Servo;
+        var LiquidCrystal_I2C      = _LCD;
+        var DHT                    = _DHT;
+        var NewPing                = _NewPing;
+        var Adafruit_SSD1306       = _Adafruit_SSD1306;
+        var Adafruit_GFX           = _Adafruit_GFX;
+        var Adafruit_ST7735        = _Adafruit_ST7735;
+        var Adafruit_NeoPixel      = _Adafruit_NeoPixel;
+        var U8G2_SSD1306_128X64_NONAME_F_HW_I2C = _U8G2_SSD1306_128X64_NONAME_F_HW_I2C;
+        var U8G2_SSD1306_128X64_NONAME_1_HW_I2C = _U8G2_SSD1306_128X64_NONAME_F_HW_I2C;
+        var U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C = _U8G2_SSD1306_128X64_NONAME_F_HW_I2C;
+        var IRrecv                 = _IRrecv;
+        var IRsend                 = _IRsend;
+        var decode_results         = _decode_results;
+        var SoftwareSerial         = _SoftwareSerial;
+        var TinyGPSPlus            = _TinyGPSPlus;
+        var MFRC522                = _MFRC522;
+        var AccelStepper           = _AccelStepper;
+        var Stepper                = _AccelStepper;
+        var Scheduler              = _Scheduler;
+        var Task                   = _Task;
+        var painlessMesh           = _painlessMesh;
+        var StaticJsonDocument     = _StaticJsonDocument;
+        var DynamicJsonDocument    = _DynamicJsonDocument;
+        var RTC_DS3231             = _RTC_DS3231;
+        var RTC_DS1307             = _RTC_DS3231;
+        var DateTime               = _DateTime;
+        // Catch-all: any unknown constructor call returns a safe mock object
+        ${transpiled}
+        return {
+          setup: typeof setup !== 'undefined' ? setup : null,
+          loop:  typeof loop  !== 'undefined' ? loop  : null
+        };
+      `);
+      
+      const result = fn(...vals);
+      this._setupFn = result.setup;
+      this._loopFn = result.loop;
+      
+      this.running = true;
+      this.startTime = Date.now();
+      
+      // Run setup (drain generator)
+      if (this._setupFn) {
+        const gen = this._setupFn();
+        let r; let limit = 10000;
+        do { r = gen.next(); limit--; } while (!r.done && limit > 0);
+      }
+      
+      this.loopGen = null;
+      serialLog('[' + this.board.name + '] Uploaded & running', 'info');
+      updateStatusDot('running');
+      return true;
+      
+    } catch(e) {
+      serialLog('[' + this.board.name + '] Error: ' + e.message, 'error');
+      updateStatusDot('error');
+      return false;
+    }
+  }
+  
+  tick() {
+    if (!this.running || !this._loopFn) return;
+    
+    // Pending delay
+    if (this.delayEndTime > 0) {
+      if (Date.now() < this.delayEndTime) return;
+      this.delayEndTime = 0;
+    }
+    
+    if (!this.loopGen) this.loopGen = this._loopFn();
+    
+    // Run a few steps per tick (to not block UI)
+    let steps = 50;
+    while (steps-- > 0) {
+      let r;
+      try { r = this.loopGen.next(); }
+      catch(e) {
+        serialLog('[' + this.board.name + '] Runtime: ' + e.message, 'error');
+        this.loopGen = null; return;
+      }
+      
+      if (r.done) {
+        this.loopGen = this._loopFn();
+        return;
+      }
+      
+      if (typeof r.value === 'number' && r.value > 0) {
+        this.delayEndTime = Date.now() + r.value;
+        return;
+      }
+      // yield 0 or undefined → continue
+    }
+  }
+  
+  stop() {
+    this.running = false;
+    this.loopGen = null;
+    this.delayEndTime = 0;
+  }
+}
+
+// ── COMPONENT FACTORY ─────────────────────────────────────────────────────
+let compCounter = {};
+function createComponent(type, pos, options={}) {
+  compCounter[type] = (compCounter[type]||0)+1;
+  const name = options.name || (type+'_'+compCounter[type]);
+  const def = COMPONENT_LIBRARY.find(d=>d.type===type);
+  if (!def) return null;
+  
+  let comp;
+  switch(type) {
+    case 'arduino_uno': comp = new ArduinoUno(name, pos); break;
+    case 'esp32': comp = new ESP32(name, pos); break;
+    case 'led': comp = new LEDComponent(name, pos, options.ledColor||'red'); break;
+    case 'resistor': comp = new Resistor(name, pos, options.ohms||220); break;
+    case 'lcd': comp = new LCD16x2(name, pos); break;
+    case 'servo': comp = new ServoMotor(name, pos); break;
+    case 'button': comp = new PushButton(name, pos); break;
+    case 'potentiometer': comp = new Potentiometer(name, pos); break;
+    case 'dht11': comp = new DHT11(name, pos); break;
+    case 'ultrasonic': comp = new Ultrasonic(name, pos); break;
+    case 'breadboard': comp = new Breadboard(name, pos); break;
+    case 'l298n': comp = new L298N(name, pos); break;
+    default: return null;
+  }
+  
+  showToast('Added: '+name, 1500);
+  return comp;
+}
+
+function addComponentFromLibrary(defOrType) {
+  const type = typeof defOrType === 'string' ? defOrType : defOrType.type;
+  const offset = components.size * 0.5;
+  const pos = new THREE.Vector3((Math.random()-0.5)*10 + offset, 0, (Math.random()-0.5)*8 + offset);
+  // Dynamic component?
+  if (dynamicComponents[type]) {
+    const def = COMPONENT_LIBRARY.find(c=>c.type===type);
+    const name = (def?.name||type).replace(/\s+/g,'_') + '_' + (components.size+1);
+    const comp = new dynamicComponents[type](name, pos);
+    comp.group.position.copy(pos);
+    scene.add(comp.group);
+    components.set(comp.id, comp);
+    selectComponent(comp);
+    return;
+  }
+  createComponent(type, {x:pos.x,y:0,z:pos.z});
+}
+
+// ── MOUSE & INTERACTION ───────────────────────────────────────────────────
+let isDraggingComp = false;
+let dragComp = null;
+let dragOffset = new THREE.Vector3();
+let isOrbiting = false;
+let isPanning = false;
+
+function getAllPickable() {
+  const meshes = [];
+  for (const comp of components.values()) {
+    comp.group.traverse(obj => { if (obj.isMesh) meshes.push(obj); });
+  }
+  return meshes;
+}
+
+function getPinAt(e) {
+  const r = getMouseRay(e);
+  const pinMeshes = [];
+  for (const comp of components.values()) {
+    for (const pin of Object.values(comp.pins)) {
+      pinMeshes.push(pin.mesh);
+      pinMeshes.push(pin.glowMesh);
+    }
+  }
+  const hits = r.intersectObjects(pinMeshes);
+  if (hits.length > 0 && hits[0].object.userData.isPinMesh) {
+    return hits[0].object.userData.pin;
+  }
+  return null;
+}
+
+function getCompAt(e) {
+  const r = getMouseRay(e);
+  const meshes = getAllPickable();
+  const hits = r.intersectObjects(meshes);
+  for (const hit of hits) {
+    let obj = hit.object;
+    while (obj && !obj.userData.isComponent) obj = obj.parent;
+    if (obj && obj.userData.isComponent) return obj.userData.component;
+  }
+  return null;
+}
+
+// ── MOUSE EVENTS (trackpad-friendly) ─────────────────────────────────────
+let mouseDownX = 0, mouseDownY = 0, mouseDownTime = 0;
+let mouseMoved = false;
+
+canvas.addEventListener('mousedown', e => {
+  if (e.target !== canvas) return;
+  mouseDownX = e.clientX; mouseDownY = e.clientY;
+  mouseDownTime = Date.now();
+  mouseMoved = false;
+  
+  // Middle click OR Shift+left = pan
+  if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+    isPanning = true;
+    orbit.lastX = e.clientX; orbit.lastY = e.clientY;
+    canvas.style.cursor = 'move';
+    return;
+  }
+  
+  // Right click = orbit (also works as fallback)
+  if (e.button === 2) {
+    isOrbiting = true;
+    orbit.lastX = e.clientX; orbit.lastY = e.clientY;
+    return;
+  }
+  
+  if (e.button === 0) {
+    // Check pins first
+    const pin = getPinAt(e);
+    if (pin) {
+      if (!connectingPin) {
+        connectingPin = pin;
+        pin.setHighlight('active');
+        showToast('Click another pin to connect  •  ESC to cancel', 2500);
+      } else {
+        if (connectingPin !== pin && connectingPin.parent !== pin.parent) {
+          new Wire3D(connectingPin, pin);
+          showToast('Connected! ✓', 1500);
+          connectingPin.setHighlight('connected');
+        }
+        connectingPin = null;
+      }
+      return;
+    }
+    
+    // Cancel connection on empty click
+    if (connectingPin) {
+      connectingPin.setHighlight('');
+      connectingPin = null;
+      return;
+    }
+    
+    // Check components
+    const comp = getCompAt(e);
+    if (comp) {
+      if (comp.type === 'button') {
+        comp.setPressed(true);
+        window.addEventListener('mouseup', () => comp.setPressed(false), {once:true});
+        return;
+      }
+      selectComponent(comp);
+      isDraggingComp = true;
+      dragComp = comp;
+      const gpt = raycastGround(e);
+      dragOffset.copy(gpt).sub(comp.group.position);
+      canvas.style.cursor = 'grabbing';
+    } else {
+      // Check test subject before falling back to orbit
+      if (testSubject) {
+        const r2 = getMouseRay(e);
+        const tsHits = r2.intersectObjects([testSubject.mesh, testSubject.glowMesh, testSubject.edges], true);
+        if (tsHits.length > 0) {
+          isDraggingTestSubject = true;
+          testSubject.setDragging(true);
+          canvas.style.cursor = 'grabbing';
+          return;
+        }
+      }
+      // Left drag on empty = orbit
+      isOrbiting = true;
+      orbit.lastX = e.clientX; orbit.lastY = e.clientY;
+      canvas.style.cursor = 'grabbing';
+    }
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  const dx = Math.abs(e.clientX - mouseDownX);
+  const dy = Math.abs(e.clientY - mouseDownY);
+  if (dx > 3 || dy > 3) mouseMoved = true;
+  
+  // Wire preview cursor
+  if (connectingPin) {
+    const wc = document.getElementById('wire-cursor');
+    wc.style.display = 'block';
+    wc.style.left = e.clientX + 'px';
+    wc.style.top = e.clientY + 'px';
+  }
+  
+  if (isDraggingComp && dragComp) {
+    const gpt = raycastGround(e);
+    dragComp.group.position.x = gpt.x - dragOffset.x;
+    dragComp.group.position.z = gpt.z - dragOffset.z;
+    for (const wire of wires.values()) {
+      if (wire.pinA.parent === dragComp || wire.pinB.parent === dragComp) wire.build();
+    }
+    return;
+  }
+
+  if (isDraggingTestSubject && testSubject) {
+    const gpt = raycastGround(e);
+    if (gpt) testSubject.group.position.set(gpt.x, 0, gpt.z);
+    return;
+  }
+  
+  if (isOrbiting) {
+    const dx2 = e.clientX - orbit.lastX;
+    const dy2 = e.clientY - orbit.lastY;
+    orbit.theta -= dx2 * 0.008;
+    orbit.phi = Math.max(0.12, Math.min(Math.PI*0.48, orbit.phi + dy2 * 0.008));
+    orbit.lastX = e.clientX; orbit.lastY = e.clientY;
+    orbit.update();
+    return;
+  }
+  
+  if (isPanning) {
+    const dx2 = e.clientX - orbit.lastX;
+    const dy2 = e.clientY - orbit.lastY;
+    const right = new THREE.Vector3();
+    const up = new THREE.Vector3(0,1,0);
+    right.crossVectors(camera.getWorldDirection(new THREE.Vector3()), up).normalize();
+    orbit.target.addScaledVector(right, -dx2 * 0.04);
+    orbit.target.addScaledVector(up, dy2 * 0.04);
+    orbit.lastX = e.clientX; orbit.lastY = e.clientY;
+    orbit.update();
+    return;
+  }
+  
+  // Hover highlight pins
+  const pin = getPinAt(e);
+  if (hoveredPin && hoveredPin !== pin && hoveredPin !== connectingPin) {
+    hoveredPin.setHighlight(hoveredPin.connections.length > 0 ? 'connected' : '');
+  }
+  if (pin && pin !== connectingPin) {
+    pin.setHighlight('hover');
+    canvas.style.cursor = 'crosshair';
+    const wt = document.getElementById('wire-tooltip');
+    wt.style.display = 'block';
+    wt.style.left = (e.clientX+14)+'px';
+    wt.style.top = (e.clientY-10)+'px';
+    wt.textContent = pin.parent.name + ' › ' + pin.name + ' [' + pin.type + ']';
+  } else {
+    document.getElementById('wire-tooltip').style.display = 'none';
+    if (!isDraggingComp && !isOrbiting) {
+      // Check if hovering component
+      const comp = getCompAt(e);
+      if (comp) {
+        canvas.style.cursor = 'grab';
+      } else if (testSubject) {
+        const r3 = getMouseRay(e);
+        const tsH = r3.intersectObjects([testSubject.mesh, testSubject.glowMesh], true);
+        canvas.style.cursor = tsH.length > 0 ? 'grab' : 'default';
+      } else {
+        canvas.style.cursor = 'default';
+      }
+    }
+  }
+  hoveredPin = pin;
+});
+
+canvas.addEventListener('mouseup', e => {
+  isDraggingComp = false;
+  dragComp = null;
+  isOrbiting = false;
+  isPanning = false;
+  if (isDraggingTestSubject && testSubject) testSubject.setDragging(false);
+  isDraggingTestSubject = false;
+  canvas.style.cursor = 'default';
+  
+  // Click without drag — deselect if on empty space
+  if (!mouseMoved && e.button === 0) {
+    const pin = getPinAt(e);
+    const comp = getCompAt(e);
+    if (!pin && !comp && !connectingPin) selectComponent(null);
+  }
+});
+
+canvas.addEventListener('mouseleave', () => {
+  document.getElementById('wire-tooltip').style.display = 'none';
+  document.getElementById('wire-cursor').style.display = 'none';
+});
+
+// Two-finger swipe = ORBIT, Shift+two-finger = PAN, pinch = ZOOM
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  
+  if (e.ctrlKey) {
+    // Pinch → zoom
+    orbit.radius = Math.max(5, Math.min(120, orbit.radius + e.deltaY * 0.15));
+    orbit.update();
+  } else if (e.shiftKey) {
+    // Shift + swipe → pan
+    const right = new THREE.Vector3();
+    const up = new THREE.Vector3(0,1,0);
+    right.crossVectors(camera.getWorldDirection(new THREE.Vector3()), up).normalize();
+    const speed = orbit.radius * 0.002;
+    orbit.target.addScaledVector(right, e.deltaX * speed);
+    orbit.target.addScaledVector(up, -e.deltaY * speed);
+    orbit.update();
+  } else {
+    // Two-finger swipe → orbit
+    orbit.theta -= e.deltaX * 0.005;
+    orbit.phi = Math.max(0.12, Math.min(Math.PI * 0.48, orbit.phi + e.deltaY * 0.005));
+    orbit.update();
+  }
+}, { passive: false });
+
+// ESC to cancel connection
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (connectingPin) {
+      connectingPin.setHighlight('');
+      connectingPin = null;
+      document.getElementById('wire-cursor').style.display = 'none';
+      showToast('Connection cancelled', 1000);
+    }
+    if (selectedComp) selectComponent(null);
+  }
+  // Delete key — remove selected component
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedComp) {
+    // Don't delete if focus is on text input
+    if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+    const id = selectedComp.id;
+    selectComponent(null);
+    removeComponent(id);
+  }
+  // F key — focus/reset view
+  if (e.key === 'f' || e.key === 'F') resetView();
+});
+
+// ── CONTINUOUS NAV BUTTON PANNING ─────────────────────────────────────────
+const navIntervals = {};
+function startNav(btn, action) {
+  action();
+  navIntervals[btn] = setInterval(action, 50);
+}
+function stopNav(btn) { clearInterval(navIntervals[btn]); }
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Assign nav button hold behavior
+  const navBtns = {
+    'nav-up':    ()=>{ orbit.phi = Math.max(0.12, orbit.phi - 0.04); orbit.update(); },
+    'nav-down':  ()=>{ orbit.phi = Math.min(Math.PI*0.48, orbit.phi + 0.04); orbit.update(); },
+    'nav-left':  ()=>{ orbit.theta -= 0.04; orbit.update(); },
+    'nav-right': ()=>{ orbit.theta += 0.04; orbit.update(); },
+  };
+  for (const [id, action] of Object.entries(navBtns)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.addEventListener('mousedown', (e) => { e.stopPropagation(); startNav(id, action); });
+    el.addEventListener('mouseup', () => stopNav(id));
+    el.addEventListener('mouseleave', () => stopNav(id));
+    el.addEventListener('touchstart', (e) => { e.preventDefault(); startNav(id, action); });
+    el.addEventListener('touchend', () => stopNav(id));
+  }
+});
+
+function resetView() {
+  orbit.theta = 0; orbit.phi = 0.72; orbit.radius = 46;
+  orbit.target.set(0,0,0);
+  orbit.update();
+  showToast('View reset', 800);
+}
+
+// ── BOTTOM PANEL RESIZE ────────────────────────────────────────────────────
+let bottomResizing = false;
+let bottomResizeStartY = 0;
+let bottomResizeStartH = 0;
+let bottomCollapsed = false;
+const bottomPanel = document.getElementById('bottom-panel');
+
+document.getElementById('bottom-resize-handle')?.addEventListener('mousedown', e => {
+  bottomResizing = true;
+  bottomResizeStartY = e.clientY;
+  bottomResizeStartH = bottomPanel.offsetHeight;
+  e.preventDefault();
+});
+document.addEventListener('mousemove', e => {
+  if (!bottomResizing) return;
+  const dy = bottomResizeStartY - e.clientY;
+  const newH = Math.max(90, Math.min(window.innerHeight * 0.6, bottomResizeStartH + dy));
+  bottomPanel.style.height = newH + 'px';
+  updateNavPos();
+});
+document.addEventListener('mouseup', () => { bottomResizing = false; });
+
+function toggleBottomPanel() {
+  bottomCollapsed = !bottomCollapsed;
+  const btn = document.getElementById('bottom-collapse-btn');
+  if (bottomCollapsed) {
+    bottomPanel.style.height = '36px';
+    btn.textContent = '▲';
+    document.getElementById('nav-controls').style.bottom = '50px';
+  } else {
+    bottomPanel.style.height = '200px';
+    btn.textContent = '▼';
+    updateNavPos();
+  }
+}
+
+function updateNavPos() {
+  const nav = document.getElementById('nav-controls');
+  if (nav) nav.style.bottom = (bottomPanel.offsetHeight + 10) + 'px';
+}
+setTimeout(updateNavPos, 100);
+
+canvas.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  const comp = getCompAt(e);
+  if (comp) showContextMenu(e.clientX, e.clientY, comp);
+});
+
+// ── SELECTION ─────────────────────────────────────────────────────────────
+function selectComponent(comp) {
+  if (selectedComp) selectedComp.setSelected(false);
+  selectedComp = comp;
+  if (comp) {
+    comp.setSelected(true);
+    document.getElementById('prop-title').textContent = comp.name.toUpperCase() + ' [' + comp.type.toUpperCase() + ']';
+    updatePropertiesPanel(comp);
+    if (comp.simulator && comp.state.code) {
+      document.getElementById('editor').value = comp.state.code;
+    }
+  } else {
+    document.getElementById('prop-title').textContent = 'SELECT A COMPONENT';
+    document.getElementById('prop-section').innerHTML = '';
+  }
+}
+
+function updatePropertiesPanel(comp) {
+  const props = comp.getProperties();
+  const el = document.getElementById('prop-section');
+  el.innerHTML = Object.entries(props).map(([k,v]) => 
+    `<div class="prop-row"><span class="prop-key">${k.toUpperCase()}</span><span class="prop-val">${v}</span></div>`
+  ).join('');
+}
+
+// ── CONTEXT MENU ──────────────────────────────────────────────────────────
+function showContextMenu(x, y, comp) {
+  const menu = document.getElementById('ctx-menu');
+  menu.innerHTML = `
+    <div class="ctx-item" onclick="selectComponent(lab_comps['${comp.id}']);hideCtxMenu()">Select</div>
+    <div class="ctx-item" onclick="lab_resetSim('${comp.id}');hideCtxMenu()">Reset Simulator</div>
+    <div class="ctx-separator"></div>
+    <div class="ctx-item danger" onclick="removeComponent('${comp.id}');hideCtxMenu()">Delete Component</div>
+  `;
+  menu.style.left = x+'px'; menu.style.top = y+'px'; menu.style.display='block';
+  window.lab_comps = Object.fromEntries(components);
+  window.lab_resetSim = (id) => {
+    const c = components.get(id);
+    if (c && c.simulator) { c.simulator.stop(); showToast('Simulator reset',1500); }
+  };
+}
+
+function hideCtxMenu() { document.getElementById('ctx-menu').style.display='none'; }
+document.addEventListener('click', hideCtxMenu);
+
+function removeComponent(id) {
+  const comp = components.get(id);
+  if (!comp) return;
+  if (comp === selectedComp) selectComponent(null);
+  comp.remove();
+  showToast('Removed', 1000);
+}
+
+// ── WIRE HELPERS ──────────────────────────────────────────────────────────
+function connectPins(comp1, pin1, comp2, pin2) {
+  const p1 = comp1.pins[pin1];
+  const p2 = comp2.pins[pin2];
+  if (!p1 || !p2) { console.warn('Pin not found:', pin1, pin2); return false; }
+  new Wire3D(p1, p2);
+  return true;
+}
+
+// ── UI CONTROLS ───────────────────────────────────────────────────────────
+function simRun() {
+  simRunning = true;
+  document.getElementById('btn-run').classList.add('active');
+  document.getElementById('btn-pause').classList.remove('active');
+  updateStatusDot('running');
+  showToast('Simulation running', 1500);
+}
+
+function simPause() {
+  simRunning = !simRunning;
+  document.getElementById('btn-pause').classList.toggle('active', !simRunning);
+  document.getElementById('btn-run').classList.toggle('active', simRunning);
+  updateStatusDot(simRunning ? 'running' : 'idle');
+}
+
+function simStop() {
+  simRunning = false;
+  for (const comp of components.values()) {
+    if (comp.simulator) comp.simulator.stop();
+    // Reset LED brightness
+    if (comp.type === 'led') comp.setBrightness(0);
+  }
+  document.getElementById('btn-run').classList.remove('active');
+  document.getElementById('btn-pause').classList.remove('active');
+  updateStatusDot('idle');
+  showToast('Simulation stopped', 1500);
+}
+
+function updateStatusDot(state) {
+  const dot = document.getElementById('status-dot');
+  dot.className = state === 'running' ? 'running' : state === 'error' ? 'error' : '';
+}
+
+function toggleLeftPanel() {
+  const p = document.getElementById('left-panel');
+  p.classList.toggle('collapsed');
+  const bp = document.getElementById('bottom-panel');
+  const nav = document.getElementById('nav-controls');
+  if (p.classList.contains('collapsed')) {
+    bp.classList.add('left-collapsed');
+    if (nav) nav.style.left = '50px';
+  } else {
+    bp.classList.remove('left-collapsed');
+    if (nav) nav.style.left = '';
+  }
+}
+function toggleRightPanel() {
+  const p = document.getElementById('right-panel');
+  p.classList.toggle('collapsed');
+  const bp = document.getElementById('bottom-panel');
+  const nav = document.getElementById('nav-controls');
+  if (p.classList.contains('collapsed')) {
+    bp.classList.add('right-collapsed');
+    if (nav) nav.style.right = '50px';
+  } else {
+    bp.classList.remove('right-collapsed');
+    if (nav) nav.style.right = '308px';
+  }
+}
+
+let panelsHidden = false;
+function toggleAllPanels() {
+  panelsHidden = !panelsHidden;
+  const ids = ['left-panel','right-panel','bottom-panel','nav-controls'];
+  const topbarChildren = ['#left-panel','#right-panel','#bottom-panel'];
+  
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.transition = 'opacity .3s, transform .3s';
+    if (panelsHidden) {
+      el.style.opacity = '0';
+      el.style.pointerEvents = 'none';
+    } else {
+      el.style.opacity = '1';
+      el.style.pointerEvents = '';
+    }
+  });
+  
+  const btn = document.getElementById('btn-panels');
+  btn.textContent = panelsHidden ? '⊞ PANELS' : '⊟ PANELS';
+  btn.classList.toggle('active', panelsHidden);
+  showToast(panelsHidden ? 'Panels hidden — click PANELS to restore' : 'Panels visible', 1800);
+}
+
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(()=>{});
+    document.getElementById('btn-fs').textContent = '⊠ EXIT';
+    document.getElementById('btn-fs').classList.add('active');
+  } else {
+    document.exitFullscreen();
+    document.getElementById('btn-fs').textContent = '⛶ FULL';
+    document.getElementById('btn-fs').classList.remove('active');
+  }
+}
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) {
+    document.getElementById('btn-fs').textContent = '⛶ FULL';
+    document.getElementById('btn-fs').classList.remove('active');
+  }
+});
+
+function switchTab(tab) {
+  document.querySelectorAll('.btab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  document.getElementById('ai-console').style.display   = tab==='ai'     ? 'flex' : 'none';
+  document.getElementById('serial-monitor').style.display = tab==='serial' ? 'block': 'none';
+  document.getElementById('sensor-panel').style.display = tab==='sensors' ? 'block': 'none';
+  if (tab==='ai') document.getElementById('ai-console').classList.add('active');
+  else document.getElementById('ai-console').classList.remove('active');
+  sensorPanelOpen = (tab === 'sensors');
+  if (sensorPanelOpen) renderSensorPanel();
+}
+
+// ── SERIAL MONITOR ────────────────────────────────────────────────────────
+let serialBuffer = '';
+function serialLog(text, type='normal') {
+  const mon = document.getElementById('serial-monitor');
+  const lines = text.split('\n');
+  for (const line of lines) {
+    if (line === '') continue;
+    const div = document.createElement('div');
+    div.className = 'serial-line' + (type!=='normal' ? ' '+type : '');
+    div.textContent = line;
+    mon.appendChild(div);
+  }
+  mon.scrollTop = mon.scrollHeight;
+}
+
+// Set up serial callbacks for all simulators
+function setupSerialCallbacks() {
+  for (const comp of components.values()) {
+    if (comp.simulator) {
+      comp.simulator.serialCallback = (text) => serialLog(text);
+    }
+  }
+}
+
+// ── CODE UPLOAD ───────────────────────────────────────────────────────────
+function uploadCode() {
+  const code = document.getElementById('editor').value;
+  if (!selectedComp || !selectedComp.simulator) {
+    showToast('Select an Arduino/ESP32 first', 2000);
+    return;
+  }
+  selectedComp.state.code = code;
+  selectedComp.simulator.serialCallback = (t) => serialLog(t);
+  
+  // Switch to serial tab
+  switchTab('serial');
+  serialLog('--- Uploading to ' + selectedComp.name + ' ---', 'info');
+  
+  const ok = selectedComp.simulator.upload(code);
+  if (ok) {
+    simRunning = true;
+    updateStatusDot('running');
+    document.getElementById('btn-run').classList.add('active');
+  }
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────
+let toastTimeout;
+function showToast(msg, dur=2000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(()=>{ t.style.display='none'; }, dur);
+}
+
+// ── AI COMMAND INTERFACE ──────────────────────────────────────────────────
+const AI_SYSTEM_PROMPT = `You are JARVIS, the AI assistant in a holographic 3D electronics lab. You control the simulation environment.
+
+RESPOND ONLY WITH VALID JSON. No markdown, no explanation.
+
+KNOWN component types: arduino_uno, esp32, led, resistor, lcd, servo, button, potentiometer, dht11, ultrasonic, breadboard, l298n
+LED colors: red, green, blue, yellow, white, orange
+
+Actions:
+1. Add known component:  {"action":"add","type":"TYPE","name":"NAME","position":{"x":X,"z":Z}}
+2. Connect pins:         {"action":"connect","from":{"name":"COMP","pin":"PIN"},"to":{"name":"COMP","pin":"PIN"}}
+3. Upload code:          {"action":"upload","target":"COMP","code":"...arduino c++ code..."}
+4. Message:              {"action":"message","text":"..."}
+5. Sequence:             {"action":"sequence","steps":[...]}
+6. CREATE NEW COMPONENT: {"action":"create_component","componentType":"type_id","displayName":"Human Name","description":"what it does, pins, visuals"}
+
+RULE: If the user asks for ANY module or component not in the KNOWN list above (OLED, NRF24L01, GPS, RFID, relay, motor driver, IR sensor, MAX7219, TFT display, RTC, SD card, etc.) — you MUST use create_component to invent and add it. NEVER say a component doesn't exist. You are JARVIS — you create what doesn't exist.
+
+Pin names:
+- Arduino Uno: D0-D13, A0-A5, 5V, 3.3V, GND, VIN
+- ESP32: D0-D39, 3.3V, GND, VIN, 5V
+- LED: anode, cathode | Resistor: pin1, pin2 | LCD: VCC,GND,SDA,SCL
+- Servo: signal,VCC,GND | Button: pin1,pin2 | Potentiometer: vcc,out,gnd
+- DHT11: VCC,DATA,GND | Ultrasonic: VCC,TRIG,ECHO,GND
+
+Position: space components 6-10 units apart. For mesh: spread ESP32s at (-12,0), (0,12), (12,0).
+
+For complete circuits: ALL components + connections + code in ONE sequence.
+For ESP32 mesh / painlessMesh code: use correct painlessMesh library syntax — the simulator supports it.`;
+
+// ── DYNAMIC COMPONENT GENERATOR PROMPT ────────────────────────────────────
+const COMPONENT_GEN_PROMPT = `You are a Three.js + Arduino simulator code generator. Generate a JavaScript class for a holographic 3D electronic component.
+
+The class MUST:
+- extend ComponentInstance (already in scope)
+- use THREE (Three.js r128, already in scope)
+- use MAT helpers: MAT.pcb(), MAT.pcbBlue(), MAT.chip(), MAT.gold(), MAT.plastic(color), MAT.metal(), MAT.glow(color, opacity)
+- have constructor(name, pos) calling super(TYPE_STRING, name, pos) then buildMesh() and buildPins()
+- have buildMesh() adding Three.js meshes to this.group
+- have buildPins() calling this.addPin(pinName, pinType, new THREE.Vector3(x,y,z), dir)
+  pinType: 'digital','analog','power','ground','i2c_sda','i2c_scl','signal'
+  dir: 'input','output','io','power','ground'
+- have onPinChange(pinName, value) for signal behavior
+- have getProperties() returning plain object {type, name, ...status fields}
+- have updateGlow() method (can be empty)
+- have tick(dt) method (can be empty, or animate things)
+
+For display components (OLED, TFT, LCD): use canvas texture on a PlaneGeometry or BoxGeometry.
+Make meshes look good and recognizable. Use colored materials that suggest the real component.
+Scale: real world ~1cm = 0.3 three.js units. Keep components compact.
+
+RESPOND ONLY WITH: a single self-contained JavaScript class, no imports, no exports, no markdown.
+Start directly with: class ComponentClass extends ComponentInstance {`;
+
+// Registry for dynamically created component classes
+const dynamicComponents = {};
+
+async function generateAndRegisterComponent(typeId, displayName, description) {
+  if (dynamicComponents[typeId]) return dynamicComponents[typeId]; // already generated
+
+  aiLog(`⚙ Generating "${displayName}" component...`, 'system');
+
+  const prompt = `Create a 3D holographic component for: ${displayName}
+Description: ${description}
+Type string to use in super(): "${typeId}"
+Class name to use: ${typeId.split('_').map(w=>w[0].toUpperCase()+w.slice(1)).join('')}Component
+
+${COMPONENT_GEN_PROMPT}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 3000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (!res.ok) throw new Error('API '+res.status);
+    const data = await res.json();
+    let code = data.content[0].text.trim();
+
+    // Strip markdown if present
+    code = code.replace(/^```(?:javascript|js)?\n?/,'').replace(/\n?```$/,'').trim();
+    if (!code.startsWith('class ')) throw new Error('Bad class output');
+
+    // Extract class name
+    const classNameMatch = code.match(/^class\s+(\w+)/);
+    if (!classNameMatch) throw new Error('No class name found');
+    const className = classNameMatch[1];
+
+    // Eval the class in scope of THREE, MAT, ComponentInstance
+    const factory = new Function('THREE','MAT','ComponentInstance', code + `\nreturn ${className};`);
+    const ComponentClass = factory(THREE, MAT, ComponentInstance);
+
+    // Register
+    dynamicComponents[typeId] = ComponentClass;
+
+    // Add to component library for the sidebar
+    if (!COMPONENT_LIBRARY.find(c=>c.type===typeId)) {
+      COMPONENT_LIBRARY.push({ type: typeId, name: displayName, category: 'Generated', icon: '⚡' });
+      rebuildSidebar();
+    }
+
+    aiLog(`✓ "${displayName}" component created and registered!`, 'system');
+    return ComponentClass;
+
+  } catch(e) {
+    aiLog(`✗ Component generation failed: ${e.message}`, 'system');
+    return null;
+  }
+}
+
+function rebuildSidebar() {
+  const list = document.getElementById('comp-list');
+  if (!list) return;
+  list.innerHTML = '';
+  let lastCat = '';
+  for (const def of COMPONENT_LIBRARY) {
+    const cat = def.category || 'Basic';
+    if (cat !== lastCat) {
+      const hdr = document.createElement('div');
+      hdr.className = 'comp-category';
+      hdr.textContent = cat.toUpperCase();
+      list.appendChild(hdr);
+      lastCat = cat;
+    }
+    const item = document.createElement('div');
+    item.className = 'comp-item';
+    item.innerHTML = `<span class="comp-icon">${def.icon||'◈'}</span>${def.name}`;
+    item.onclick = () => addComponentFromLibrary(def.type);
+    list.appendChild(item);
+  }
+}
+
+function findCompByName(name) {
+  for (const comp of components.values()) {
+    if (comp.name.toLowerCase() === name.toLowerCase()) return comp;
+  }
+  return null;
+}
+
+async function executeAction(action) {
+  switch(action.action) {
+    case 'add': {
+      const pos = { x: action.position?.x||0, y:0, z: action.position?.z||0 };
+      // Check if it's a dynamic component
+      if (dynamicComponents[action.type]) {
+        const CompClass = dynamicComponents[action.type];
+        const name = action.name || action.type + '_' + Date.now();
+        const comp = new CompClass(name, new THREE.Vector3(pos.x, 0, pos.z));
+        comp.group.position.set(pos.x, 0, pos.z);
+        scene.add(comp.group);
+        components.set(comp.id, comp);
+        selectComponent(comp);
+        break;
+      }
+      const comp = createComponent(action.type, pos, { name:action.name, ledColor:action.ledColor });
+      if (comp && comp.simulator) comp.simulator.serialCallback = (t)=>serialLog(t);
+      break;
+    }
+    case 'create_component': {
+      const typeId = action.componentType || action.type;
+      const displayName = action.displayName || typeId;
+      const description = action.description || displayName;
+      const CompClass = await generateAndRegisterComponent(typeId, displayName, description);
+      if (CompClass && action.position) {
+        const pos = action.position;
+        const name = action.name || displayName.replace(/\s+/g,'_') + '_1';
+        const comp = new CompClass(name, new THREE.Vector3(pos.x||0, 0, pos.z||0));
+        comp.group.position.set(pos.x||0, 0, pos.z||0);
+        scene.add(comp.group);
+        components.set(comp.id, comp);
+        selectComponent(comp);
+      }
+      break;
+    }
+    case 'connect': {
+      const c1 = findCompByName(action.from.name);
+      const c2 = findCompByName(action.to.name);
+      if (!c1) { aiLog('Component not found: '+action.from.name, 'system'); break; }
+      if (!c2) { aiLog('Component not found: '+action.to.name, 'system'); break; }
+      const ok = connectPins(c1, action.from.pin, c2, action.to.pin);
+      if (!ok) aiLog(`Pin not found: ${action.from.pin} or ${action.to.pin}`, 'system');
+      break;
+    }
+    case 'upload': {
+      const comp = findCompByName(action.target);
+      if (!comp || !comp.simulator) { aiLog('No board: '+action.target, 'system'); break; }
+      comp.state.code = action.code;
+      comp.simulator.serialCallback = (t)=>serialLog(t);
+      document.getElementById('editor').value = action.code;
+      selectComponent(comp);
+      switchTab('serial');
+      serialLog('--- Uploading to '+comp.name+' ---','info');
+      const ok = comp.simulator.upload(action.code);
+      if (ok) { simRunning=true; updateStatusDot('running'); document.getElementById('btn-run').classList.add('active'); }
+      break;
+    }
+    case 'message': {
+      aiLog(action.text, 'ai');
+      break;
+    }
+    case 'sequence': {
+      for (const step of (action.steps||[])) {
+        await executeAction(step);
+        await new Promise(r=>setTimeout(r, 150));
+      }
+      break;
+    }
+  }
+}
+
+function aiLog(text, type='ai') {
+  const log = document.getElementById('ai-log');
+  const div = document.createElement('div');
+  div.className = 'ai-msg '+type;
+  div.textContent = (type==='user'?'> ':'JARVIS: ') + text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+async function sendAICommand() {
+  const input = document.getElementById('ai-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  
+  aiLog(text, 'user');
+  
+  // Build context about current components
+  let context = '\n\nCurrently in scene: ';
+  if (components.size === 0) {
+    context += 'empty lab';
+  } else {
+    context += [...components.values()].map(c=>`${c.name}(${c.type})`).join(', ');
+  }
+  
+  document.getElementById('thinking-indicator').style.display = 'block';
+  
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        system: AI_SYSTEM_PROMPT,
+        messages: [{ role:'user', content: text + context }]
+      })
+    });
+    
+    document.getElementById('thinking-indicator').style.display = 'none';
+    
+    if (!res.ok) throw new Error('API error '+res.status);
+    const data = await res.json();
+    const raw = data.content[0].text.trim();
+    
+    // Parse JSON
+    try {
+      let jsonStr = raw;
+      // Strip markdown code blocks if present
+      jsonStr = jsonStr.replace(/^```json\n?/,'').replace(/\n?```$/,'').trim();
+      const parsed = JSON.parse(jsonStr);
+      
+      // Show message summary to user
+      if (parsed.action === 'message') {
+        aiLog(parsed.text, 'ai');
+      } else if (parsed.action === 'sequence') {
+        const types = [...new Set(parsed.steps.map(s=>s.action))];
+        aiLog(`Executing sequence: ${parsed.steps.length} steps (${types.join(', ')})`, 'ai');
+      } else {
+        aiLog(`Executing: ${parsed.action}`, 'ai');
+      }
+      
+      await executeAction(parsed);
+      
+    } catch(parseErr) {
+      // Not JSON — display as message
+      aiLog(raw, 'ai');
+    }
+    
+  } catch(err) {
+    document.getElementById('thinking-indicator').style.display = 'none';
+    aiLog('Error: '+err.message, 'system');
+  }
+}
+
+function aiInputKey(e) {
+  if (e.key === 'Enter') sendAICommand();
+}
+
+// ── WIRE PREVIEW ON MOUSE MOVE (for active connection) ────────────────────
+let wireLine = null;
+function updateWirePreview(e) {
+  if (!connectingPin) {
+    if (wireLine) { scene.remove(wireLine); wireLine=null; }
+    document.getElementById('wire-cursor').style.display = 'none';
+    return;
+  }
+  // Update floating cursor dot
+  const wc = document.getElementById('wire-cursor');
+  wc.style.display = 'block';
+  wc.style.left = e.clientX+'px';
+  wc.style.top = e.clientY+'px';
+  
+  // Build preview wire line
+  const gpt = raycastGround(e);
+  const startPos = connectingPin.worldPos();
+  const endPos = gpt.clone().setY(0.5);
+  const mid = new THREE.Vector3().lerpVectors(startPos, endPos, 0.5);
+  mid.y += 1.5;
+  const curve = new THREE.CatmullRomCurve3([startPos, mid, endPos]);
+  const pts = curve.getPoints(20);
+  if (wireLine) scene.remove(wireLine);
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const mat = new THREE.LineBasicMaterial({color:0xff8800, transparent:true, opacity:0.7});
+  wireLine = new THREE.Line(geo, mat);
+  scene.add(wireLine);
+}
+canvas.addEventListener('mousemove', updateWirePreview);
+
+// ── PARTICLE ANIMATION ────────────────────────────────────────────────────
+let pTime = 0;
+function animateParticles(dt) {
+  pTime += dt;
+  const pos = particleGeo.attributes.position.array;
+  for (let i=0; i<pCount; i++) {
+    pos[i*3+1] += 0.01 * Math.sin(pTime + i * 0.5);
+    if (pos[i*3+1] > 30) pos[i*3+1] = 0;
+  }
+  particleGeo.attributes.position.needsUpdate = true;
+  particleMat.opacity = 0.3 + 0.1 * Math.sin(pTime * 0.5);
+}
+
+// ── LIVE SENSOR PANEL ─────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════
+// DRAGGABLE TEST SUBJECT — a physical object you move in 3D to test sensors
+// ══════════════════════════════════════════════════════════════════════════
+class TestSubject {
+  constructor() {
+    this.group = new THREE.Group();
+    this.group.position.set(8, 0, 0);
+    this.active = false;
+    this.isDragging = false;
+
+    // Glowing cube body
+    const geo = new THREE.BoxGeometry(1.4, 1.4, 1.4);
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0xff6600, emissive: 0xff3300, emissiveIntensity: 0.6,
+      transparent: true, opacity: 0.92, roughness: 0.2, metalness: 0.3
+    });
+    this.mesh = new THREE.Mesh(geo, mat);
+    this.group.add(this.mesh);
+
+    // Outer glow shell
+    const glowGeo = new THREE.BoxGeometry(1.9, 1.9, 1.9);
+    const glowMat = new THREE.MeshBasicMaterial({ color: 0xff4400, transparent: true, opacity: 0.12, side: THREE.BackSide });
+    this.glowMesh = new THREE.Mesh(glowGeo, glowMat);
+    this.group.add(this.glowMesh);
+
+    // Point light
+    this.light = new THREE.PointLight(0xff6600, 1.2, 10);
+    this.light.position.y = 1;
+    this.group.add(this.light);
+
+    // Label ring (wireframe outline)
+    const edgeGeo = new THREE.EdgesGeometry(geo);
+    const edgeMat = new THREE.LineBasicMaterial({ color: 0xff8844, transparent: true, opacity: 0.8 });
+    this.edges = new THREE.LineSegments(edgeGeo, edgeMat);
+    this.group.add(this.edges);
+
+    // "TEST" label plane — pulse rings
+    for (let i = 0; i < 3; i++) {
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(0.8 + i*0.4, 0.9 + i*0.4, 16),
+        new THREE.MeshBasicMaterial({ color: 0xff6600, transparent: true, opacity: 0.15 - i*0.04, side: THREE.DoubleSide })
+      );
+      ring.rotation.x = -Math.PI/2;
+      ring.position.y = -0.7;
+      ring.userData.ringIndex = i;
+      this.group.add(ring);
+    }
+
+    scene.add(this.group);
+    this.group.userData.isTestSubject = true;
+    this.group.userData.testSubjectRef = this;
+
+    // Add draggable mesh userData
+    this.mesh.userData.isTestSubjectMesh = true;
+    this.mesh.userData.testSubjectRef = this;
+  }
+
+  setDragging(v) {
+    this.isDragging = v;
+    this.mesh.material.emissiveIntensity = v ? 1.2 : 0.6;
+    this.glowMesh.material.opacity = v ? 0.3 : 0.12;
+    this.light.intensity = v ? 2.5 : 1.2;
+  }
+
+  tick(t) {
+    // Hover float animation
+    this.mesh.position.y = 0.7 + Math.sin(t * 1.8) * 0.15;
+    this.glowMesh.position.y = this.mesh.position.y;
+    this.edges.position.y   = this.mesh.position.y;
+    this.mesh.rotation.y    = t * 0.5;
+    this.edges.rotation.y   = t * 0.5;
+
+    // Pulse rings
+    this.group.children.forEach(c => {
+      if (c.userData.ringIndex !== undefined) {
+        const phase = t * 2 + c.userData.ringIndex * 1.0;
+        c.material.opacity = 0.06 + 0.08 * Math.abs(Math.sin(phase));
+        const s = 1 + 0.08 * Math.sin(phase * 1.3);
+        c.scale.setScalar(s);
+      }
+    });
+
+    // Update all sensors based on distance to this test subject
+    const pos = this.group.position;
+    for (const comp of components.values()) {
+      if (comp.type === 'ultrasonic') {
+        const dx = pos.x - comp.group.position.x;
+        const dz = pos.z - comp.group.position.z;
+        const dist3d = Math.sqrt(dx*dx + dz*dz);
+        // 1 three.js unit = ~5 cm, capped at 400cm
+        comp.distance = Math.max(2, Math.min(400, dist3d * 5));
+      }
+    }
+  }
+
+  worldPos() { return this.group.position.clone(); }
+  remove() { scene.remove(this.group); }
+}
+
+// Create the test subject (hidden until toggled)
+let testSubject = null;
+let isDraggingTestSubject = false;
+
+function spawnTestSubject() {
+  if (testSubject) { testSubject.remove(); testSubject = null; return; }
+  testSubject = new TestSubject();
+  showToast('Test object spawned — drag it near sensors!', 2500);
+}
+
+// ── SENSOR PANEL ──────────────────────────────────────────────────────────
+function getSensorReadings() {
+  const readings = [];
+  for (const comp of components.values()) {
+    if (comp.type === 'dht11') {
+      readings.push({ id: comp.id+'_temp', name: comp.name, label:'Temperature',
+        value: comp.readTemperature().toFixed(1), unit:'°C', pct:(comp.temperature+10)/90,
+        comp, slider:{ min:-10, max:80, step:0.5, get:()=>comp.temperature, set:v=>comp.temperature=v } });
+      readings.push({ id: comp.id+'_hum', name: comp.name, label:'Humidity',
+        value: comp.readHumidity().toFixed(1), unit:'%', pct:comp.humidity/100,
+        comp, slider:{ min:0, max:100, step:1, get:()=>comp.humidity, set:v=>comp.humidity=v } });
+    }
+    if (comp.type === 'ultrasonic') {
+      const d = comp.measureDistance();
+      readings.push({ id: comp.id+'_dist', name: comp.name, label:'Distance',
+        value: d.toFixed(1), unit:'cm', pct:Math.min(1, d/400), comp,
+        slider:{ min:2, max:400, step:1, get:()=>comp.distance, set:v=>comp.distance=v },
+        hint: testSubject ? '📦 Drag test object to change' : null });
+    }
+    if (comp.type === 'potentiometer') {
+      readings.push({ id: comp.id+'_pot', name: comp.name, label:'Position',
+        value: (comp.value*100).toFixed(0), unit:'%', pct:comp.value,
+        comp, slider:{ min:0, max:100, step:1, get:()=>comp.value*100, set:v=>comp.setValue(v/100) } });
+    }
+    if (comp.type === 'led') {
+      const v = comp.state.brightness||0;
+      readings.push({ id: comp.id+'_led', name: comp.name, label:'LED',
+        value: v>0.01?'ON':'OFF', unit:(v*100).toFixed(0)+'%', pct:v, comp, digital:true, on:v>0.01 });
+    }
+    if (comp.type === 'button') {
+      readings.push({ id: comp.id+'_btn', name: comp.name, label:'Button',
+        value: comp.pressed?'PRESSED':'OPEN', unit:'', pct:comp.pressed?1:0,
+        comp, digital:true, on:comp.pressed, pressable:true });
+    }
+    if (comp.type === 'servo') {
+      readings.push({ id: comp.id+'_servo', name: comp.name, label:'Angle',
+        value: comp.angle.toFixed(0), unit:'°', pct:comp.angle/180,
+        comp, slider:{ min:0, max:180, step:1, get:()=>comp.angle, set:v=>comp.targetAngle=v } });
+    }
+    if (comp.type === 'arduino_uno' || comp.type === 'esp32') {
+      for (const [pname, pin] of Object.entries(comp.pins)) {
+        if (pin.connections.length > 0 && pin.value > 0) {
+          readings.push({ id: comp.id+'_'+pname, name: comp.name, label: pname,
+            value: pin.type==='analog'?(pin.value*1023).toFixed(0):(pin.value>0.5?'HIGH':'LOW'),
+            unit: pin.type==='analog'?'/1023':'', pct:pin.value,
+            comp, digital:pin.type==='digital', on:pin.value>0.5 });
+        }
+      }
+    }
+  }
+  return readings;
+}
+
+let sensorPanelOpen = false;
+function renderSensorPanel() { sensorPanelOpen = true; updateSensorPanel(); }
+
+function updateSensorPanel() {
+  if (!sensorPanelOpen) return;
+  const panel = document.getElementById('sensor-panel');
+  if (!panel || panel.style.display === 'none') return;
+
+  const readings = getSensorReadings();
+
+  // Header with spawn button
+  const spawnBtnHtml = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+    <span style="font-size:9px;letter-spacing:2px;color:var(--text2)">LIVE SENSOR MONITOR</span>
+    <button onclick="spawnTestSubject()" style="background:${testSubject?'rgba(255,102,0,0.25)':'rgba(0,212,255,0.1)'};border:1px solid ${testSubject?'#ff6600':'var(--border)'};
+      color:${testSubject?'#ff8844':'var(--c)'};font-family:var(--font);font-size:8px;letter-spacing:2px;padding:5px 12px;cursor:pointer;transition:all .2s">
+      ${testSubject ? '🟠 REMOVE OBJECT' : '📦 SPAWN TEST OBJECT'}
+    </button>
+  </div>`;
+
+  if (readings.length === 0) {
+    panel.innerHTML = spawnBtnHtml + `<div class="sensor-empty">No active sensors found. Add components and connect them.</div>`;
+    return;
+  }
+
+  const existing = panel.querySelector('.sensor-grid');
+  const ids = readings.map(r=>r.id);
+  const needsRebuild = !existing || existing.dataset.ids !== ids.join(',');
+
+  if (needsRebuild) {
+    panel.innerHTML = spawnBtnHtml +
+      '<div class="sensor-grid" data-ids="'+ids.join(',')+'">'+
+      readings.map(r => buildSensorCard(r)).join('') + '</div>';
+
+    for (const r of readings) {
+      if (r.slider) {
+        const sl = panel.querySelector(`#sl_${r.id}`);
+        if (sl) sl.addEventListener('input', e => r.slider.set(parseFloat(e.target.value)));
+      }
+      if (r.pressable) {
+        const btn = panel.querySelector(`#pb_${r.id}`);
+        if (btn) {
+          btn.addEventListener('mousedown',  () => r.comp.setPressed(true));
+          btn.addEventListener('mouseup',    () => r.comp.setPressed(false));
+          btn.addEventListener('mouseleave', () => r.comp.setPressed(false));
+          btn.addEventListener('touchstart', e  => { e.preventDefault(); r.comp.setPressed(true); });
+          btn.addEventListener('touchend',   ()  => r.comp.setPressed(false));
+        }
+      }
+    }
+  } else {
+    // Soft update — just refresh numbers, keep sliders alone
+    const hdr = panel.querySelector('button[onclick="spawnTestSubject()"]');
+    if (hdr) {
+      hdr.style.background = testSubject ? 'rgba(255,102,0,0.25)' : 'rgba(0,212,255,0.1)';
+      hdr.style.borderColor = testSubject ? '#ff6600' : 'var(--border)';
+      hdr.style.color = testSubject ? '#ff8844' : 'var(--c)';
+      hdr.textContent = testSubject ? '🟠 REMOVE OBJECT' : '📦 SPAWN TEST OBJECT';
+    }
+    for (const r of readings) {
+      const valEl  = panel.querySelector(`#val_${r.id}`);
+      const barEl  = panel.querySelector(`#bar_${r.id}`);
+      const cardEl = panel.querySelector(`#card_${r.id}`);
+      const pct    = Math.max(0, Math.min(1, r.pct||0)) * 100;
+      if (valEl)  valEl.textContent = r.value + (r.unit && !r.digital ? ' '+r.unit : '');
+      if (barEl)  { barEl.style.width = pct+'%'; barEl.className = 'sensor-bar-fill'+(pct>80?' high':''); }
+      if (cardEl) cardEl.className = 'sensor-card'+(r.digital&&r.on?' active':'');
+      if (r.slider) {
+        const sl = panel.querySelector(`#sl_${r.id}`);
+        if (sl && document.activeElement !== sl) sl.value = r.slider.get();
+      }
+    }
+  }
+}
+
+function buildSensorCard(r) {
+  const pct = Math.max(0, Math.min(1, r.pct||0)) * 100;
+  const cardClass = 'sensor-card'+(r.digital&&r.on?' active':'');
+  let controls = '';
+  if (r.slider) {
+    const s = r.slider;
+    controls += `<div class="sensor-slider-row">
+      <input id="sl_${r.id}" type="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${s.get()}" class="sensor-slider">
+      <span class="slider-range">${s.min}–${s.max}</span></div>`;
+  }
+  if (r.hint) controls += `<div style="font-size:8px;color:var(--ca);margin-top:3px">${r.hint}</div>`;
+  if (r.pressable) controls += `<button id="pb_${r.id}" class="sensor-ctrl-btn press-btn">HOLD TO PRESS</button>`;
+
+  return `<div id="card_${r.id}" class="${cardClass}">
+    <div class="sensor-name">${r.name} <span style="color:var(--c2)">${r.label}</span></div>
+    <div id="val_${r.id}" class="sensor-value">${r.value}${r.unit&&!r.digital?' '+r.unit:''}</div>
+    <div class="sensor-bar"><div id="bar_${r.id}" class="sensor-bar-fill${pct>80?' high':''}" style="width:${pct}%"></div></div>
+    ${controls}</div>`;
+}
+
+// ── SENSOR PANEL — live cards with interactive controls ───────────────────
+function getSensorReadings() {
+  const readings = [];
+  for (const comp of components.values()) {
+    if (comp.type === 'dht11') {
+      readings.push({ id: comp.id+'_temp',  name: comp.name, label:'Temperature', value: comp.readTemperature().toFixed(1), unit:'°C',  pct: (comp.temperature+10)/90,  comp, slider:{ min:-10, max:80,  step:0.5, get:()=>comp.temperature,       set:v=>{ comp.temperature=v; comp._mouseTracking=false; } }, mouseBtn:{ comp, field:'temperature' } });
+      readings.push({ id: comp.id+'_hum',   name: comp.name, label:'Humidity',    value: comp.readHumidity().toFixed(1),    unit:'%',   pct: comp.humidity/100,           comp, slider:{ min:0,   max:100, step:1,   get:()=>comp.humidity,           set:v=>{ comp.humidity=v;    comp._mouseTracking=false; } } });
+    }
+    if (comp.type === 'ultrasonic') {
+      const d = comp.measureDistance();
+      readings.push({ id: comp.id+'_dist',  name: comp.name, label:'Distance',    value: d.toFixed(1),                      unit:'cm',  pct: Math.min(1, d/400),          comp, slider:{ min:2,   max:400, step:1,   get:()=>comp.distance,           set:v=>{ comp.distance=v;    comp._mouseTracking=false; } }, mouseBtn:{ comp, field:'distance' } });
+    }
+    if (comp.type === 'potentiometer') {
+      readings.push({ id: comp.id+'_pot',   name: comp.name, label:'Position',    value: (comp.value*100).toFixed(0),       unit:'%',   pct: comp.value,                  comp, slider:{ min:0,   max:100, step:1,   get:()=>comp.value*100,          set:v=>comp.setValue(v/100) } });
+    }
+    if (comp.type === 'led') {
+      const v = comp.state.brightness||0;
+      readings.push({ id: comp.id+'_led',   name: comp.name, label:'Brightness',  value: v>0.01?'ON':'OFF',                 unit:(v*100).toFixed(0)+'%', pct:v, comp, digital:true, on:v>0.01 });
+    }
+    if (comp.type === 'button') {
+      readings.push({ id: comp.id+'_btn',   name: comp.name, label:'State',       value: comp.pressed?'PRESSED':'OPEN',     unit:'',    pct: comp.pressed?1:0,            comp, digital:true, on:comp.pressed, pressable:true });
+    }
+    if (comp.type === 'servo') {
+      readings.push({ id: comp.id+'_servo', name: comp.name, label:'Angle',       value: comp.angle.toFixed(0),             unit:'°',   pct: comp.angle/180,              comp, slider:{ min:0, max:180, step:1, get:()=>comp.angle, set:v=>{ comp.targetAngle=v; } } });
+    }
+    if (comp.type === 'arduino_uno' || comp.type === 'esp32') {
+      for (const [pname, pin] of Object.entries(comp.pins)) {
+        if (pin.connections.length > 0 && pin.value > 0) {
+          readings.push({ id: comp.id+'_'+pname, name: comp.name, label: pname,
+            value: pin.type==='analog' ? (pin.value*1023).toFixed(0) : (pin.value>0.5?'HIGH':'LOW'),
+            unit: pin.type==='analog'?'/1023':'', pct: pin.value, comp, digital:pin.type==='digital', on:pin.value>0.5 });
+        }
+      }
+    }
+  }
+  return readings;
+}
+
+let lastTime = performance.now();
+function animate() {
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const dt = (now - lastTime) / 1000;
+  lastTime = now;
+  
+  // FPS counter
+  frameCount++;
+  if (now - lastFpsTime > 1000) {
+    document.getElementById('fps-counter').textContent = frameCount+'fps';
+    frameCount = 0; lastFpsTime = now;
+  }
+  
+  // Animate particles
+  animateParticles(dt);
+  
+  // Rotate point lights
+  const t = now * 0.001;
+  pointLight1.position.x = Math.cos(t * 0.3) * 15;
+  pointLight1.position.z = Math.sin(t * 0.3) * 12;
+  
+  // Tick test subject every frame (independent of sim state)
+  if (testSubject) testSubject.tick(t);
+
+  // Tick simulation
+  if (simRunning) {
+    for (const comp of components.values()) {
+      comp.tick(dt);
+    }
+    // Update wire visual activity
+    for (const wire of wires.values()) {
+      // Animate emissive based on signal
+      const v = Math.max(wire.pinA.value, wire.pinB.value);
+      if (wire.mesh) {
+        wire.mesh.material.emissiveIntensity = 0.2 + v*0.7 + 0.1*Math.sin(t*8 + wire.id.charCodeAt(0));
+      }
+    }
+    // Update properties if selected
+    if (selectedComp && frameCount % 30 === 0) {
+      updatePropertiesPanel(selectedComp);
+    }
+  }
+  
+  // Update sensor panel every ~20 frames
+  if (frameCount % 20 === 0) updateSensorPanel();
+
+  renderer.render(scene, camera);
+}
+animate();
+
+// ── INITIAL SCENE ─────────────────────────────────────────────────────────
+aiLog('JARVIS online. Holographic Electronics Lab initialized.', 'ai');
+aiLog('Controls: Drag to orbit • Shift+drag to pan • Scroll to zoom • Click pins to wire • ESC cancel • DEL delete', 'system');
+aiLog('Try: "Create a traffic light circuit" or "Build a servo controlled by potentiometer"', 'system');
+
+</script>
+</body>
+</html>
