@@ -1730,6 +1730,7 @@ class ArduinoSimulator {
     js = js.replace(/function\s+([A-Za-z_]\w*)\s*\(([^)]*)\)\s*\{/g, (m, fnName, rawParams) => {
       return `function ${fnName}(${cleanFunctionParams(rawParams)}) {`;
     });
+
     
     // Make setup/loop generators
     js = js.replace(/function setup\s*\(\s*\)/, 'function* setup()');
